@@ -3,6 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bản Đồ Lưới Điện Văn Bàn</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { width: 100%; height: 100vh; }
+        
+        /* Chỉnh sửa giao diện Popup hiển thị thông tin cột/dây */
+        .popup-custom { max-height: 250px; overflow-y: auto; font-size: 13px; }
+        .popup-custom b { color: #0056b3; }
+        
+        /* Chỉnh sửa icon gom cụm (Cluster) */
+        .custom-cluster-icon {
+            background-color: rgba(0, 123, 255, 0.85); 
+            border: 2px solid #0056b3; 
+            color: white; 
+            border-radius: 50%; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            font-size: 12px; 
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    
+    <script>
+        // 1. KHỞI TẠO BẢN ĐỒ VÀ CÁC LỚP NỀN
+        // Tọa độ trung tâm mặc định đặt tại khu vực Văn Bàn, Lào Cai
+        const centerLat = 22.0500;
+        const centerLng = 104.2500;
+
+        const googleStreets = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { 
+            maxZoom: 20, 
+            attribution: '© Google Giao thông' 
+        });
+        
+        const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { 
+            maxZoom: 20, 
+            attribution: '© Google Vệ tinh' 
+        });
+
+        // Khởi tạo map, mặc định dùng lớp Vệ tinh
+        const map = L.map('map', { 
+            center: [centerLat, centerLng], 
+            zoom: 12, 
+            layers: [googleSat] 
+        });
+
+        // 2. TẠO LỚP CHỨA DỮ LIỆU LƯỚI ĐIỆN (Sử dụng MarkerCluster để tối ưu hiệu suất)
+        const gridLayer = L.markerClusterGroup({
+            iconCreateFunction: function(cluster) {
+                const count = cluster.getChildCount();
+                let size = count >= 100 ? 50 : 40;
+                return L.divIcon({
+                    html: `<div class="custom-cluster-icon" style="width: ${size}px; height: ${size}px;"><span>🔌</span><span>${count}</span></div>`,
+                    className: '', 
+                    iconSize: L.point(size, size)
+                });
+            },
+            disableClusteringAtZoom: 16, // Phóng to đến mức 16 sẽ tự rã cụm hiển thị từng điểm
+            maxClusterRadius: 60
+        });
+
+        // 3. TẢI DỮ LIỆU TỪ FILE JSON LOCAL
+        // Lưu ý: Đảm bảo file 'vanban.json' nằm chung thư mục với file HTML này
+        fetch('vanban.json')
+            .then(response => {
+                if (!response.ok) throw new Error("Không thể tải file vanban.json");
+                return response.json();
+            })
+            .then(data => {
+                // Xử lý và vẽ dữ liệu GeoJSON lên bản đồ
+                L.geoJSON(data, {
+                    // Style dành cho Dây dẫn (LineString)
+                    style: function (f) { 
+                        return (f.geometry.type === "LineString" || f.geometry.type === "MultiLineString") 
+                            ? { color: "#0056b3", weight: 3, opacity: 0.8 } 
+                            : {}; 
+                    },
+                    // Style dành cho Cột điện/Trạm (Point)
+                    pointToLayer: function (f, latlng) { 
+                        return L.circleMarker(latlng, { 
+                            radius: 6, 
+                            fillColor: "#007bff", 
+                            color: "#ffffff", 
+                            weight: 1.5, 
+                            fillOpacity: 0.9 
+                        }); 
+                    },
+                    // Gắn Popup thông tin khi click vào
+                    onEachFeature: function (f, layer) {
+                        if (f.properties) {
+                            let lat = "", lng = "";
+                            
+                            // Trích xuất tọa độ để làm link Google Maps
+                            if (f.geometry.type === "Point") { 
+                                lng = f.geometry.coordinates[0]; lat = f.geometry.coordinates[1]; 
+                            } else if (f.geometry.type === "MultiPoint") { 
+                                lng = f.geometry.coordinates[0][0]; lat = f.geometry.coordinates[0][1]; 
+                            }
+
+                            let p = `<div class='popup-custom'><b>Thông Tin Thiết Bị</b><hr style='margin:5px 0'>`;
+                            
+                            // Nút chỉ đường (Nếu có tọa độ)
+                            if (lat && lng) {
+                                p += `<div style="text-align: center; margin-bottom: 8px;">
+                                        <a href="https://www.google.com/maps?q=$${lat},${lng}" target="_blank" 
+                                           style="display: block; background: #f8fbff; border: 1px solid #cce5ff; padding: 5px; border-radius: 4px; text-decoration: none; color: #0056b3; font-weight: bold;">
+                                           📍 Chỉ đường Google Maps
+                                        </a>
+                                      </div>`;
+                            }
+
+                            // Quét toàn bộ thuộc tính trong file JSON để hiển thị
+                            for (const k in f.properties) {
+                                if(f.properties[k] !== null && f.properties[k] !== "") {
+                                    p += `<b>${k}:</b> ${f.properties[k]}<br>`;
+                                }
+                            }
+                            p += "</div>";
+                            layer.bindPopup(p);
+                        }
+                    }
+                }).addTo(gridLayer); // Thêm dữ liệu vào cụm
+                
+                // Hiển thị lớp lưới điện lên bản đồ ngay sau khi tải xong
+                gridLayer.addTo(map); 
+                
+                // Tự động zoom bản đồ vừa vặn với toàn bộ lưới điện
+                map.fitBounds(gridLayer.getBounds());
+            })
+            .catch(error => {
+                console.error("Lỗi tải dữ liệu:", error);
+                alert("Không thể tải dữ liệu lưới điện. Hãy chắc chắn bạn đang chạy trên Local Server và file vanban.json nằm đúng vị trí.");
+            });
+
+        // 4. THÊM BẢNG ĐIỀU KHIỂN LỚP (LAYER CONTROL) Ở GÓC DƯỚI BÊN TRÁI
+        const baseMaps = { 
+            "🛰️ Bản đồ Vệ tinh": googleSat,
+            "🚗 Bản đồ Giao thông": googleStreets 
+        };
+        
+        const overlayMaps = { 
+            "🔌 Lưới điện Văn Bàn": gridLayer 
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false, position: 'bottomleft' }).addTo(map);
+
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bản Đồ Cảnh Báo Sét & Lưới Điện - Design by Quyết Thắng</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
