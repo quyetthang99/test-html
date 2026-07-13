@@ -3,508 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bản Đồ Cảnh Báo Sét & Lưới Điện - Design by Quyết Thắng</title>
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
-    
+    <title>Công cụ tính Lệch pha & Lưu dữ liệu</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #map { width: 100%; height: 100vh; }
-        
-        /* BẢNG CẢNH BÁO SÉT */
-        .info-panel {
-            position: absolute; top: 15px; right: 50px;
-            background: rgba(255, 255, 255, 0.95); padding: 15px;
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 1000; width: 270px; transition: all 0.3s ease;
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px auto; 
+            max-width: 450px; 
+            background-color: #f9f9f9;
         }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 5px; }
-        .panel-header h3 { margin: 0; color: #333; font-size: 16px; }
-        .panel-header:hover { color: #0056b3; }
-        .info-panel.collapsed #panel-content { display: none; }
-        .info-panel.collapsed { padding-bottom: 10px; width: 220px; }
-
-        .author-credit { font-size: 12px; color: #666; font-style: italic; margin-top: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
-        .status { font-weight: bold; }
-        .popup-custom { max-height: 200px; overflow-y: auto; font-size: 13px; }
-        .popup-custom b { color: #0056b3; }
-        .filter-section { margin-top: 10px; padding-top: 5px; }
-        .filter-section select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #aaa; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
-        
-        .btn-excel { background-color: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-top: 5px; transition: 0.2s; }
-        .btn-excel:hover { background-color: #218838; }
-        .island-label { font-weight: bold; color: #bd0000; background: rgba(255, 255, 255, 0.9); border: 1px solid #bd0000; border-radius: 4px; font-size: 12px; padding: 4px 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
-        .lightning-icon-div { cursor: pointer; filter: drop-shadow(0 0 2px rgba(0,0,0,0.8)); transition: transform 0.2s; }
-        .lightning-icon-div:hover { transform: scale(1.4); }
-
-        /* THANH TÌM KIẾM THIẾT BỊ */
-        .search-box { background: #f1f8ff; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #cce5ff; }
-        #search-input { width: calc(100% - 16px); padding: 8px; border: 1px solid #99c2ff; border-radius: 4px; margin-top: 5px; font-size: 12px; font-weight: bold; }
-        #search-results { max-height: 140px; overflow-y: auto; margin-top: 5px; }
-        .search-item { display: flex; justify-content: space-between; align-items: center; padding: 6px; border-bottom: 1px dashed #b8daff; font-size: 11px; background: white; margin-bottom: 3px; border-radius: 3px; }
-        .search-item span { max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; color: #333; }
-        .search-item button { background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 10px; font-weight: bold; }
-        .search-item button:hover { background: #0056b3; }
-
-        /* NÚT THU GỌN LỚP BẢN ĐỒ DƯỚI GÓC TRÁI */
-        .custom-collapsed .leaflet-control-layers-list { display: none !important; }
-        .custom-collapsed { padding: 0 !important; border: none !important; background: transparent !important; box-shadow: none !important; }
-        .layer-collapse-btn { padding: 8px 12px; background: #fff; border-radius: 4px; font-weight: bold; cursor: pointer; color: #0056b3; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
-        .leaflet-control-layers:not(.custom-collapsed) .layer-collapse-btn { border-bottom: 1px solid #ccc; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: #f8f9fa; box-shadow: none; }
-        .layer-collapse-btn:hover { background: #e9ecef; }
-
-        /* BẢNG POPUP ĐĂNG NHẬP */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 300px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: slideDown 0.3s ease; }
-        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        
-        /* CSS CHO NHÃN TÊN CỘT ĐIỆN */
-        .custom-label-container { background: transparent; border: none; box-shadow: none; }
-        .pole-name-label { background: rgba(255, 255, 255, 0.9); border: 1px solid #17a2b8; border-radius: 3px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #0056b3; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2); pointer-events: none; }
-
-        /* CSS BẢNG KẾT QUẢ ĐƯỜNG DÂY */
-        .table-ketqua { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
-        .table-ketqua th { background: #f1f8ff; border: 1px solid #cce5ff; padding: 4px; position: sticky; top: 0; }
-        .table-ketqua td { border: 1px solid #cce5ff; padding: 4px; }
+        .container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+        }
+        h2 { text-align: center; color: #333; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input[type="number"], input[type="text"] { 
+            width: 100%; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            font-size: 16px;
+        }
+        .result-box { 
+            background: #e9ecef; 
+            padding: 15px; 
+            margin-top: 20px; 
+            border-radius: 5px; 
+        }
+        .result-box p { margin: 8px 0; font-size: 16px; }
+        .result-box span { font-weight: bold; color: #d9534f; }
+        button { 
+            padding: 12px; 
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 4px;
+            cursor: pointer; 
+            width: 100%; 
+            font-size: 16px; 
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button:hover { background: #218838; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        #status { margin-top: 15px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
 
-    <div id="login-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 style="color:#d32f2f; margin-top:0;">🔒 Yêu Cầu Đăng Nhập</h3>
-            <p id="login-msg" style="font-size: 13px; color: #555; line-height: 1.4;">Tính năng này chỉ dành cho nội bộ.<br>Vui lòng nhập tài khoản và mật khẩu.</p>
-            
-            <input type="text" id="login-user" placeholder="Tên đăng nhập..." style="width: 90%; padding: 10px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; text-align: center;" onkeypress="if(event.key === 'Enter') document.getElementById('login-pass').focus()">
-            
-            <div style="position: relative; width: 90%; margin: 5px auto 10px auto;">
-                <input type="password" id="login-pass" placeholder="Mật khẩu..." style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; text-align: center;" onkeypress="if(event.key === 'Enter') checkLogin()">
-                <span id="toggle-pass" onclick="togglePassVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 16px;" title="Hiện/Ẩn mật khẩu">👁️</span>
-            </div>
-            
-            <p id="login-error" style="color: red; font-size: 11px; margin: 0 0 10px 0; display: none; font-weight: bold;">Sai tài khoản hoặc mật khẩu!</p>
-            
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button onclick="checkLogin()" style="background: #007bff; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Mở khóa</button>
-                <button onclick="closeModal()" style="background: #e0e0e0; color: #333; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Hủy bỏ</button>
-            </div>
-        </div>
+<div class="container">
+    <h2>Tính Lệch Pha</h2>
+
+    <div class="form-group">
+        <label>Link Web App (Google Script):</label>
+        <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." required>
     </div>
 
-    <div class="info-panel" id="main-info-panel">
-        <div class="panel-header" onclick="toggleInfoPanel()">
-            <h3>Cảnh Báo Giông Sét</h3>
-            <span id="panel-toggle-icon" style="font-size: 12px; color: #0056b3;">▼</span>
-        </div>
-        
-        <div id="panel-content">
-            <div class="author-credit">
-                <span>Design by Quyết Thắng</span>
-                <button id="auth-btn" onclick="toggleAuth()" style="background: #007bff; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 11px; font-weight: bold; cursor: pointer;">Đăng Nhập</button>
-            </div>
-            
-            <p style="margin-top: 0; margin-bottom: 15px;">Trạng thái: <span id="loading-status" class="status" style="color: orange;">Đang tải...</span></p>
-            
-            <div style="font-size: 14px; margin-bottom: 8px;">Số điểm sét: <span id="lightning-count" style="font-weight: bold; color: #d9534f; font-size: 18px;">0</span></div>
-            <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #ccc;">
-                <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                    <input type="checkbox" id="chk-cg" checked onchange="filterLightning(false)" style="accent-color: red; cursor: pointer;">
-                    <b style="color: red;">⚡ Xuống đất:</b> <span id="cg-count" style="font-weight: bold;">0</span>
-                </label>
-                <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                    <input type="checkbox" id="chk-ic" checked onchange="filterLightning(false)" style="accent-color: #0056b3; cursor: pointer;">
-                    <b style="color: #0056b3;">☁️ Trong mây:</b> <span id="ic-count" style="font-weight: bold;">0</span>
-                </label>
-            </div>
-
-            <div id="premium-features" style="display: none;">
-                <div style="background: #fff0f0; border: 1px solid #ffcccc; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-                    <label style="font-weight:bold; color:#d32f2f; display:block; margin-bottom: 8px; border-bottom: 1px solid #ffcccc; padding-bottom: 4px;">⏳ Tìm sét theo khung giờ & Đường dây:</label>
-                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 8px;">
-                        <span>Từ:</span>
-                        <input type="datetime-local" id="start-time" style="width: 150px; padding: 4px; border: 1px solid #ff9999; border-radius: 3px; font-size: 11px; cursor: pointer;">
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
-                        <span>Đến:</span>
-                        <input type="datetime-local" id="end-time" style="width: 150px; padding: 4px; border: 1px solid #ff9999; border-radius: 3px; font-size: 11px; cursor: pointer;">
-                    </div>
-                    
-                    <div style="margin-bottom: 8px;">
-                        <label style="font-weight:bold; color:#0056b3; font-size: 11px;">Tên đường dây / Lộ (Tùy chọn):</label>
-                        <input type="text" id="line-name-input" placeholder="VD: 375E20.40" style="width: 100%; padding: 4px; border: 1px solid #99c2ff; border-radius: 3px; font-size: 11px; box-sizing: border-box;">
-                    </div>
-                    
-                    <div style="display: flex; gap: 6px; margin-bottom: 10px;">
-                        <button onclick="filterLightning()" style="background:#28a745; color:white; border:none; padding:6px; border-radius:3px; flex:1; cursor:pointer; font-weight:bold; font-size:11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: 0.2s;">🔍 Tìm kiếm</button>
-                        <button onclick="clearTimeFilter()" style="background:#6c757d; color:white; border:none; padding:6px; border-radius:3px; flex:1; cursor:pointer; font-weight:bold; font-size:11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: 0.2s;">✖ Hủy lọc</button>
-                    </div>
-
-                    <div id="line-search-result-wrapper" style="display: none; background: #fff; border: 1px dashed #28a745; padding: 5px; border-radius: 4px; margin-bottom: 5px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <b style="font-size: 11px; color: #28a745;">Kết quả đường dây</b>
-                            <button onclick="exportLineExcel()" style="background:#17a2b8; color:white; border:none; border-radius:3px; padding:3px 6px; font-size:10px; cursor:pointer; font-weight:bold;">⬇ Xuất Excel</button>
-                        </div>
-                        <div style="max-height: 150px; overflow-y: auto;">
-                            <table class="table-ketqua" id="line-search-table">
-                                <thead>
-                                    <tr>
-                                        <th>Thời gian</th>
-                                        <th>kA</th>
-                                        <th>Cột</th>
-                                        <th>Cách(m)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="line-search-tbody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="search-box">
-                    <label style="font-weight:bold; color:#0056b3;">🔍 Tìm kiếm nhanh thiết bị:</label>
-                    <input type="text" id="search-input" placeholder="VD: Cột 2, Lâm Sinh..." onkeyup="searchPoles()">
-                    <div id="search-results" style="display: none;"></div>
-                </div>
-            </div>
-
-            <div class="filter-section">
-                <label for="province-filter"><b>Lọc theo tỉnh:</b></label>
-                <select id="province-filter" onchange="filterLightning(true)">
-                    <option value="all">Toàn bộ (Tất cả)</option>
-                    <option value="Lào Cai" selected>Lào Cai (Yên Bái)</option>
-                    <option value="Hà Nội">Hà Nội</option>
-                    <option value="Hải Phòng">Hải Phòng</option>
-                    <option value="Đà Nẵng">Đà Nẵng (Quảng Nam)</option>
-                    <option value="Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                    <option value="Cần Thơ">Cần Thơ</option>
-                    <option value="Lai Châu">Lai Châu</option>
-                    <option value="Điện Biên">Điện Biên</option>
-                    <option value="Sơn La">Sơn La</option>
-                    <option value="Hòa Bình">Hòa Bình</option>
-                    <option value="Hà Giang">Hà Giang</option>
-                    <option value="Tuyên Quang">Tuyên Quang</option>
-                    <option value="Cao Bằng">Cao Bằng</option>
-                    <option value="Bắc Kạn">Bắc Kạn</option>
-                    <option value="Lạng Sơn">Lạng Sơn</option>
-                    <option value="Thái Nguyên">Thái Nguyên</option>
-                    <option value="Bắc Ninh">Bắc Ninh (Bắc Giang)</option>
-                    <option value="Vĩnh Phúc">Phú Thọ (Vĩnh Phúc)</option>
-                    <option value="Quảng Ninh">Quảng Ninh</option>
-                    <option value="Hải Dương">Hải Dương</option>
-                    <option value="Hưng Yên">Hưng Yên</option>
-                    <option value="Thái Bình">Thái Bình</option>
-                    <option value="Nam Định">Nam Định</option>
-                    <option value="Hà Nam">Hà Nam</option>
-                    <option value="Ninh Bình">Ninh Bình</option>
-                    <option value="Thanh Hóa">Thanh Hóa</option>
-                    <option value="Nghệ An">Nghệ An</option>
-                    <option value="Hà Tĩnh">Hà Tĩnh</option>
-                    <option value="Quảng Bình">Quảng Bình</option>
-                    <option value="Thừa Thiên Huế">Thừa Thiên Huế (Quảng Trị)</option>
-                    <option value="Đắk Lắk">Đắk Lắk (Phú Yên)</option>
-                    <option value="Lâm Đồng">Lâm Đồng (Đắk Nông & Bình Thuận)</option>
-                    <option value="Khánh Hòa">Khánh Hòa (Ninh Thuận)</option>
-                    <option value="Tiền Giang">Tiền Giang (Bến Tre)</option>
-                    <option value="Vĩnh Long">Vĩnh Long (Trà Vinh)</option>
-                    <option value="Kiên Giang">Kiên Giang (An Giang)</option>
-                    <option value="Cà Mau">Cà Mau (Bạc Liêu)</option>
-                    <option value="Sóc Trăng">Sóc Trăng (Hậu Giang)</option>
-                </select>
-
-                <label for="time-filter"><b>Lọc theo thời gian (Mặc định):</b></label>
-                <select id="time-filter" onchange="handleTimeFilterChange()">
-                    <option value="1800" selected>30 Phút qua</option>
-                    <option value="7200">2 Giờ qua</option>
-                    <option value="21600">6 Giờ qua</option>
-                    <option value="43200">12 Giờ qua</option>
-                    <option value="86400">24 Giờ qua</option>
-                    <option value="172800">2 Ngày qua</option>
-                    <option value="604800">1 Tuần qua (Tất cả)</option>
-                </select>
-            </div>
-            
-            <div style="margin-top: 10px; font-size: 11px; color: #666; line-height: 1.4;">
-                <i>* Chọn Tỉnh để tự động khoanh vùng sét. Lọc khung giờ ưu tiên hơn lọc Mặc định.</i>
-            </div>
-        </div>
+    <div class="form-group">
+        <label>Dòng điện pha A (Ia):</label>
+        <input type="number" id="ia" step="any" oninput="tinhToan()">
+    </div>
+    <div class="form-group">
+        <label>Dòng điện pha B (Ib):</label>
+        <input type="number" id="ib" step="any" oninput="tinhToan()">
+    </div>
+    <div class="form-group">
+        <label>Dòng điện pha C (Ic):</label>
+        <input type="number" id="ic" step="any" oninput="tinhToan()">
     </div>
 
-    <div id="map"></div>
+    <div class="result-box">
+        <p>Dòng trung bình (Itb): <span id="itb_res">0.00</span></p>
+        <p>Dòng điện Io: <span id="i0_res">0.00</span></p>
+        <p>Tỷ lệ lệch pha: <span id="lechpha_res">0.00</span> %</p>
+    </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    
-    <script>
-        // ================== CẤU HÌNH TÀI KHOẢN & PHÂN QUYỀN ==================
-        let isLoggedIn = false;
-        let userRole = '';
+    <button onclick="luuDuLieu()" id="btnSave">Lưu lên Google Sheet</button>
+    <div id="status"></div>
+</div>
+
+<script>
+    function tinhToan() {
+        // Lấy giá trị đầu vào, nếu rỗng thì mặc định là 0
+        let ia = parseFloat(document.getElementById('ia').value) || 0;
+        let ib = parseFloat(document.getElementById('ib').value) || 0;
+        let ic = parseFloat(document.getElementById('ic').value) || 0;
+
+        // Tính dòng trung bình (Itb)
+        let itb = (ia + ib + ic) / 3;
         
-        const authStatus = localStorage.getItem('pclk_auth');
-        const loginTime = localStorage.getItem('pclk_login_time');
-        const currentTime = Date.now();
+        // Tính dòng Io theo công thức vector
+        let i0 = Math.sqrt(Math.pow(ia, 2) + Math.pow(ib, 2) + Math.pow(ic, 2) - (ia*ib) - (ib*ic) - (ic*ia));
+        
+        // Tính Tỷ lệ Lệch pha
+        let lechpha = (itb === 0) ? 0 : (i0 / itb) * 100;
 
-        if (authStatus === 'true' && loginTime) {
-            if (currentTime - parseInt(loginTime) > 7200000) {
-                localStorage.removeItem('pclk_auth');
-                localStorage.removeItem('pclk_role');
-                localStorage.removeItem('pclk_login_time');
-            } else {
-                isLoggedIn = true;
-                userRole = localStorage.getItem('pclk_role') || '';
-            }
+        // Hiển thị kết quả ra màn hình (làm tròn 2 chữ số thập phân)
+        document.getElementById('itb_res').innerText = itb.toFixed(2);
+        document.getElementById('i0_res').innerText = i0.toFixed(2);
+        document.getElementById('lechpha_res').innerText = lechpha.toFixed(2);
+        
+        // Trả về object dữ liệu để chuẩn bị gửi đi
+        return { 
+            ia: ia, 
+            ib: ib, 
+            ic: ic, 
+            i0: parseFloat(i0.toFixed(2)), 
+            lechPha: parseFloat(lechpha.toFixed(2)) 
+        };
+    }
+
+    function luuDuLieu() {
+        let url = document.getElementById('scriptUrl').value;
+        if (!url) {
+            alert("Vui lòng nhập Link Web App của Google Script trước khi lưu!");
+            return;
         }
 
-        let layerControl; 
-        let loadedLayers = {}; 
-        
-        let showLabels = false; 
-        const labelToggleLayer = L.layerGroup(); 
-        const labelGroups = {}; 
-        
-        const dienLucList = {
-            " ĐL Văn Bàn": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/vanban.json",
-            " ĐL Lào Cai": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/laocai.json",
-            " ĐL SaPa": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/sapa.json",
-            " ĐL Bát Xát": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/batxat.json",
-            " ĐL Bắc Hà": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/bacha.json",
-            " ĐL Bảo Thắng": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/baothang.json",
-            " ĐL Bảo Yên": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/baoyen.json",
-            " ĐL Mường Khương": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/muongkhuong.json",
-            " ĐL Yên Bái": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/yenbai.json",
-            " ĐL Trấn Yên": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/tranyen.json",
-            " ĐL Văn Yên": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/vanyen.json",
-            " ĐL Lục Yên": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/lucyen.json",
-            " ĐL Nghĩa Lộ": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/nghialo.json",
-            " Cao Thế LC": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/caothelc.json",
-            " Cao Thế YB": "https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/caotheyb.json"
-        };
+        let data = tinhToan();
+        let statusDiv = document.getElementById('status');
+        let btn = document.getElementById('btnSave');
 
-        const provinceBounds = {
-            "Lào Cai": { minLat: 21.23, maxLat: 22.85, minLng: 103.50, maxLng: 105.00 },
-            "Lai Châu": { minLat: 21.52, maxLat: 22.82, minLng: 102.31, maxLng: 103.63 },
-            "Điện Biên": { minLat: 20.83, maxLat: 22.33, minLng: 102.15, maxLng: 103.59 },
-            "Sơn La": { minLat: 20.65, maxLat: 22.05, minLng: 103.20, maxLng: 105.02 },
-            "Hòa Bình": { minLat: 20.28, maxLat: 21.15, minLng: 104.80, maxLng: 105.85 },
-            "Hà Giang": { minLat: 22.12, maxLat: 23.38, minLng: 104.33, maxLng: 105.55 },
-            "Tuyên Quang": { minLat: 21.52, maxLat: 22.75, minLng: 104.80, maxLng: 105.65 },
-            "Cao Bằng": { minLat: 22.25, maxLat: 23.13, minLng: 105.25, maxLng: 106.85 },
-            "Bắc Kạn": { minLat: 21.80, maxLat: 22.73, minLng: 105.43, maxLng: 106.25 },
-            "Thái Nguyên": { minLat: 21.33, maxLat: 22.05, minLng: 105.48, maxLng: 106.25 },
-            "Lạng Sơn": { minLat: 21.32, maxLat: 22.45, minLng: 106.10, maxLng: 107.35 },
-            "Quảng Ninh": { minLat: 20.73, maxLat: 21.65, minLng: 106.42, maxLng: 108.05 },
-            "Hà Nội": { minLat: 20.55, maxLat: 21.38, minLng: 105.28, maxLng: 106.03 },
-            "Bắc Ninh": { minLat: 21.00, maxLat: 21.63, minLng: 105.88, maxLng: 106.80 }, 
-            "Vĩnh Phúc": { minLat: 20.91, maxLat: 21.72, minLng: 104.85, maxLng: 105.80 }, 
-            "Hải Dương": { minLat: 20.72, maxLat: 21.23, minLng: 106.18, maxLng: 106.68 },
-            "Hưng Yên": { minLat: 20.58, maxLat: 21.02, minLng: 105.88, maxLng: 106.25 },
-            "Hải Phòng": { minLat: 20.58, maxLat: 21.03, minLng: 106.40, maxLng: 107.13 },
-            "Thái Bình": { minLat: 20.28, maxLat: 20.73, minLng: 106.25, maxLng: 106.65 },
-            "Hà Nam": { minLat: 20.38, maxLat: 20.72, minLng: 105.78, maxLng: 106.12 },
-            "Nam Định": { minLat: 19.90, maxLat: 20.48, minLng: 105.92, maxLng: 106.58 },
-            "Ninh Bình": { minLat: 19.83, maxLat: 20.40, minLng: 105.53, maxLng: 106.18 },
-            "Thanh Hóa": { minLat: 19.30, maxLat: 20.65, minLng: 104.38, maxLng: 106.05 },
-            "Nghệ An": { minLat: 18.55, maxLat: 19.90, minLng: 103.85, maxLng: 105.78 },
-            "Hà Tĩnh": { minLat: 17.88, maxLat: 18.65, minLng: 105.08, maxLng: 106.25 },
-            "Quảng Bình": { minLat: 17.08, maxLat: 18.10, minLng: 105.60, maxLng: 106.98 },
-            "Thừa Thiên Huế": { minLat: 15.95, maxLat: 17.17, minLng: 106.45, maxLng: 108.20 }, 
-            "Đà Nẵng": { minLat: 15.22, maxLat: 16.22, minLng: 107.25, maxLng: 108.73 }, 
-            "Hồ Chí Minh": { minLat: 10.35, maxLat: 11.15, minLng: 106.35, maxLng: 106.98 },
-            "Cần Thơ": { minLat: 9.92, maxLat: 10.32, minLng: 105.22, maxLng: 105.83 }
-        };
+        // Hiển thị trạng thái đang tải
+        statusDiv.innerText = "⏳ Đang lưu dữ liệu...";
+        statusDiv.style.color = "#007bff";
+        btn.disabled = true;
 
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
-        const googleStreets = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '© Google' });
-        const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '© Google Vệ tinh' });
-
-        const map = L.map('map', { center: [22.0000, 104.5000], zoom: 8, layers: [osmLayer] });
-
-        // THANH CÔNG CỤ VẼ ĐA GIÁC (DRAW CONTROL)
-        const drawnItems = new L.FeatureGroup();
-        map.addLayer(drawnItems);
-        const drawControl = new L.Control.Draw({
-            position: 'topleft',
-            edit: { featureGroup: drawnItems, edit: false, remove: true },
-            draw: { polyline: false, marker: false, circlemarker: false, circle: false, polygon: { allowIntersection: false, showArea: true }, rectangle: true }
-        });
-        map.addControl(drawControl);
-
-        let activePolygonGeoJSON = null; 
-        let activePolygonLayer = null;
-
-        map.on(L.Draw.Event.CREATED, function (e) {
-            drawnItems.clearLayers(); 
-            const layer = e.layer;
-            drawnItems.addLayer(layer);
-            activePolygonGeoJSON = layer.toGeoJSON();
-            activePolygonLayer = layer;
-            filterLightning(); 
-        });
-
-        map.on(L.Draw.Event.DELETED, function (e) {
-            if (drawnItems.getLayers().length === 0) { activePolygonGeoJSON = null; activePolygonLayer = null; }
-            filterLightning();
-        });
-
-        // LỚP GOM CỤM DÀNH CHO SÉT
-        const lightningLayer = L.markerClusterGroup({
-            iconCreateFunction: function(cluster) {
-                const count = cluster.getChildCount();
-                let bgColor = count >= 50 ? 'rgba(253, 126, 20, 0.85)' : 'rgba(255, 193, 7, 0.85)'; 
-                let borderColor = count >= 50 ? '#FD7E14' : '#FFC107';
-                let textColor = count >= 50 ? '#fff' : '#000';
-                let size = count >= 50 ? 45 : 35;
-                return L.divIcon({ html: `<div style="background-color: ${bgColor}; border: 2px solid ${borderColor}; color: ${textColor}; width: ${size}px; height: ${size}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);">${count}</div>`, className: 'custom-cluster-icon', iconSize: L.point(size, size) });
+        // Gửi dữ liệu qua Google Apps Script
+        fetch(url, {
+            method: 'POST',
+            mode: 'no-cors', // Bắt buộc dùng no-cors khi gọi từ Github Pages sang Google Script
+            headers: {
+                'Content-Type': 'application/json'
             },
-            animate: false, chunkedLoading: true 
-        }).addTo(map);
-
-        // KHỞI TẠO CÁC LỚP LƯỚI ĐIỆN RỖNG (TRƯỚC KHI TẢI DỮ LIỆU)
-        const gridLayers = {};
-        for (let key in dienLucList) {
-            gridLayers[key] = L.markerClusterGroup({
-                iconCreateFunction: function(cluster) {
-                    const count = cluster.getChildCount();
-                    let size = count >= 100 ? 50 : 40;
-                    return L.divIcon({
-                        html: `<div style="background-color: rgba(0, 123, 255, 0.85); border: 2px solid #0056b3; color: white; width: ${size}px; height: ${size}px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; box-shadow: 0 3px 8px rgba(0,0,0,0.4); line-height: 1.1;"><span>🔌</span><span>${count}</span></div>`,
-                        className: 'custom-cluster-icon', iconSize: L.point(size, size)
-                    });
-                },
-                animate: false, chunkedLoading: true, maxClusterRadius: 60, disableClusteringAtZoom: 15
-            });
-        }
-
-        const baseMaps = { "🗺️ Bản đồ Tiêu chuẩn": osmLayer, "🚗 Bản đồ Giao thông": googleStreets, "🛰️ Bản đồ Vệ tinh": googleSat };
-
-        // 2. HÀM TẠO MENU THEO QUYỀN HẠN TÀI KHOẢN
-        function buildLayerControl() {
-            if (layerControl) { map.removeControl(layerControl); }
-
-            let activeOverlays = { "⚡ Cảnh báo Sét đánh": lightningLayer };
-
-            if (isLoggedIn) {
-                activeOverlays["Hiển thị tên thiết bị"] = labelToggleLayer;
-                
-                for (let key in dienLucList) {
-                    if (userRole === 'all' || userRole === key) {
-                        activeOverlays[key] = gridLayers[key];
-                    }
-                }
-            }
-
-            layerControl = L.control.layers(baseMaps, activeOverlays, {collapsed: false, position: 'bottomleft'}).addTo(map);
-
-            const layerContainer = layerControl.getContainer();
-            layerContainer.id = "my-layer-control"; 
-            const collapseLayerBtn = document.createElement('div');
-            collapseLayerBtn.className = 'layer-collapse-btn';
-            collapseLayerBtn.innerHTML = '▼ Thu gọn (Các lớp Bản đồ)';
-            layerContainer.insertBefore(collapseLayerBtn, layerContainer.firstChild);
+            body: JSON.stringify(data)
+        }).then(() => {
+            // Vì dùng 'no-cors' nên sẽ không đọc được response trả về, mặc định cứ gửi đi không lỗi là thành công
+            statusDiv.innerText = "✅ Đã lưu dữ liệu thành công!";
+            statusDiv.style.color = "green";
+            btn.disabled = false;
             
-            collapseLayerBtn.onclick = function(e) {
-                e.stopPropagation();
-                layerContainer.classList.toggle('custom-collapsed');
-                collapseLayerBtn.innerHTML = layerContainer.classList.contains('custom-collapsed') ? '▲ Bật / Tắt Lớp Bản Đồ' : '▼ Thu gọn (Các lớp Bản đồ)';
-            };
-
-            layerContainer.style.display = isLoggedIn ? "block" : "none";
-        }
-
-        // ================= HỆ THỐNG KIỂM SOÁT HIỂN THỊ NHÃN TÊN =================
-        function updateLabelsVisibility() {
-            if (!isLoggedIn) return;
-            const currentZoom = map.getZoom();
-            const ZOOM_THRESHOLD = 13; 
-
-            for (let key in gridLayers) {
-                if (map.hasLayer(gridLayers[key]) && labelGroups[key]) {
-                    if (showLabels && currentZoom >= ZOOM_THRESHOLD) {
-                        if (!map.hasLayer(labelGroups[key])) { map.addLayer(labelGroups[key]); }
-                    } else {
-                        if (map.hasLayer(labelGroups[key])) { map.removeLayer(labelGroups[key]); }
-                    }
-                }
-            }
-            
-            const statusLabel = document.getElementById('loading-status');
-            if (showLabels) {
-                if (currentZoom < ZOOM_THRESHOLD) {
-                    statusLabel.innerText = "Đã bật nhãn (Hãy phóng to để xem)";
-                    statusLabel.style.color = "#ff8c00";
-                } else {
-                    statusLabel.innerText = "Hoạt động tốt";
-                    statusLabel.style.color = "green";
-                }
-            }
-        }
-
-        map.on('zoomend', function() {
-            updateLabelsVisibility();
+            // Xóa trắng form sau khi lưu thành công (tùy chọn)
+            // document.getElementById('ia').value = '';
+            // document.getElementById('ib').value = '';
+            // document.getElementById('ic').value = '';
+            // tinhToan();
+        }).catch(error => {
+            statusDiv.innerText = "❌ Có lỗi xảy ra. Vui lòng thử lại!";
+            statusDiv.style.color = "red";
+            btn.disabled = false;
         });
+    }
+</script>
 
-        function getShortLabel(properties) {
-            if (!properties) return "Chưa có tên";
-            for (let key of ['soHieu', 'SoHieu', 'SO_HIEU']) { 
-                if (properties[key] && properties[key].trim() !== "") return properties[key]; 
-            }
-            return detectPoleName(properties); 
-        }
-
-        // 3. LOGIC TẢI LƯỚI ĐIỆN VÀ GẮN NHÃN
-        let poleFeaturesByLayer = {}; 
-        
-        map.on('overlayadd', async function(e) {
-            const layerName = e.name;
-            
-            if (layerName === "Hiển thị tên thiết bị") {
-                showLabels = true;
-                for (let key in gridLayers) {
-                    if (map.hasLayer(gridLayers[key]) && labelGroups[key]) {
-                        map.addLayer(labelGroups[key]);
-                    }
-                }
-                updateLabelsVisibility(); 
-                return;
-            }
-            
-            if (dienLucList[layerName] && !loadedLayers[layerName]) {
-                if (!isLoggedIn) {
-                    map.removeLayer(e.layer);
-                    showModal("Vui lòng đăng nhập để xem lưới điện!");
-                    return;
-                }
-
-                const statusLabel = document.getElementById('loading-status');
-                statusLabel.innerText = `Đang tải ${layerName}...`;
-                statusLabel.style.color = "blue";
-
-                try {
-                    const response = await fetch(dienLucList[layerName]);
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data === null) throw new Error("Dữ liệu rỗng");
-
-                        poleFeaturesByLayer[layerName] = [];
-                        let poles = data.features.filter(f => f.geometry && (f.geometry.type === "Point" || f.geometry.type === "MultiPoint"));
-                        poleFeaturesByLayer[layerName].push(...poles);
-                        
-                        labelGroups[layerName] = L.layerGroup();
-
-                        L.geoJSON(data, {
-                            style: function (f) { return (f.geometry.type === "LineString" || f.geometry.type === "MultiLineString") ? { color: "#0056b3", weight: 3, opacity: 0.8 } : {}; },
-                            pointToLayer: function (f, latlng) { return L.circleMarker(latlng, { radius: 5, fillColor: "#007bff", color: "#ffffff", weight: 1, fillOpacity: 0.9 }); },
-                            onEachFeature: function (f, layer) {
-                                if (f.properties) {
-                                    let lat, lng;
-                                    if (f.geometry.type === "Point") { lng = f.geometry.coordinates[0]; lat = f.geometry.coordinates[1]; } 
-                                    else if (f.geometry.type === "MultiPoint") { lng = f.geometry.coordinates[0][0]; lat = f.geometry.coordinates[0][1]; }
-                                    
-                                    if (lat && lng) {
-                                        let shortName = getShortLabel(f.properties);
-                                        let labelMarker = L.marker([lat, lng], {
-                                            icon: L.divIcon({ html: `<div class="pole
+</body>
+</html>
