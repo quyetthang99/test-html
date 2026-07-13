@@ -59,8 +59,8 @@
     <h2>Tính Lệch Pha</h2>
 
     <div class="form-group">
-        <label>Link Web App (Google Script):</label>
-        <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." required>
+        <label>Tên Trạm / Vị trí:</label>
+        <input type="text" id="tenTram" placeholder="VD: TBA Văn Bàn 1..." required>
     </div>
 
     <div class="form-group">
@@ -87,28 +87,27 @@
 </div>
 
 <script>
+    // ========================================================
+    // BƯỚC QUAN TRỌNG: DÁN LINK WEB APP CỦA BẠN VÀO DƯỚI ĐÂY
+    // ========================================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9oqsdk7xnXPQ7QIfb-M-s25T5A17e3PVBF_bo3NSR4gR4V6WuY0aC-aXpVOWVj3Xm/exec";
+
     function tinhToan() {
-        // Lấy giá trị đầu vào, nếu rỗng thì mặc định là 0
         let ia = parseFloat(document.getElementById('ia').value) || 0;
         let ib = parseFloat(document.getElementById('ib').value) || 0;
         let ic = parseFloat(document.getElementById('ic').value) || 0;
+        let tenTram = document.getElementById('tenTram').value;
 
-        // Tính dòng trung bình (Itb)
         let itb = (ia + ib + ic) / 3;
-        
-        // Tính dòng Io theo công thức vector
         let i0 = Math.sqrt(Math.pow(ia, 2) + Math.pow(ib, 2) + Math.pow(ic, 2) - (ia*ib) - (ib*ic) - (ic*ia));
-        
-        // Tính Tỷ lệ Lệch pha
         let lechpha = (itb === 0) ? 0 : (i0 / itb) * 100;
 
-        // Hiển thị kết quả ra màn hình (làm tròn 2 chữ số thập phân)
         document.getElementById('itb_res').innerText = itb.toFixed(2);
         document.getElementById('i0_res').innerText = i0.toFixed(2);
         document.getElementById('lechpha_res').innerText = lechpha.toFixed(2);
         
-        // Trả về object dữ liệu để chuẩn bị gửi đi
         return { 
+            tenTram: tenTram,
             ia: ia, 
             ib: ib, 
             ic: ic, 
@@ -118,40 +117,34 @@
     }
 
     function luuDuLieu() {
-        let url = document.getElementById('scriptUrl').value;
-        if (!url) {
-            alert("Vui lòng nhập Link Web App của Google Script trước khi lưu!");
-            return;
-        }
-
         let data = tinhToan();
         let statusDiv = document.getElementById('status');
         let btn = document.getElementById('btnSave');
 
-        // Hiển thị trạng thái đang tải
+        if (!data.tenTram.trim()) {
+            alert("Vui lòng nhập Tên trạm trước khi lưu!");
+            document.getElementById('tenTram').focus();
+            return;
+        }
+
+        if (SCRIPT_URL === "DÁN_LINK_URL_ỨNG_DỤNG_WEB_VÀO_ĐÂY" || SCRIPT_URL === "") {
+            alert("Lỗi: Bạn chưa gắn link API của Google Script vào file HTML!");
+            return;
+        }
+
         statusDiv.innerText = "⏳ Đang lưu dữ liệu...";
         statusDiv.style.color = "#007bff";
         btn.disabled = true;
 
-        // Gửi dữ liệu qua Google Apps Script
-        fetch(url, {
+        fetch(SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // Bắt buộc dùng no-cors khi gọi từ Github Pages sang Google Script
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         }).then(() => {
-            // Vì dùng 'no-cors' nên sẽ không đọc được response trả về, mặc định cứ gửi đi không lỗi là thành công
             statusDiv.innerText = "✅ Đã lưu dữ liệu thành công!";
             statusDiv.style.color = "green";
             btn.disabled = false;
-            
-            // Xóa trắng form sau khi lưu thành công (tùy chọn)
-            // document.getElementById('ia').value = '';
-            // document.getElementById('ib').value = '';
-            // document.getElementById('ic').value = '';
-            // tinhToan();
         }).catch(error => {
             statusDiv.innerText = "❌ Có lỗi xảy ra. Vui lòng thử lại!";
             statusDiv.style.color = "red";
