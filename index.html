@@ -114,11 +114,9 @@
         .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
         .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
 
-        /* CSS Ô tìm kiếm trạm */
         .station-search-input { width: 100%; padding: 8px 10px; margin-bottom: 8px; border: 1px solid #94a3b8; border-radius: 6px; box-sizing: border-box; font-size: 13px; outline: none; font-family: inherit; background: #fff;}
         .station-search-input:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2); }
 
-        /* CSS Modal Tính Tổn Thất */
         #loss-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 9998; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         #loss-modal.show { display: flex; }
         .loss-card { background: white; width: 460px; max-width: 94vw; max-height: 92vh; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.35); display: flex; flex-direction: column; overflow: hidden; animation: fadeIn 0.25s ease; }
@@ -138,7 +136,6 @@
         .badge-warn { background: #fef3c7; color: #b45309; }
         .badge-danger { background: #fee2e2; color: #b91c1c; }
 
-        /* CSS Tùy chỉnh cho Marker Cluster để đẹp hơn */
         .marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
         .marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
         .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
@@ -555,7 +552,7 @@
         return inside;
     }
 
-    // HÀM TẠO VÀ TẢI FILE DXF (AUTOCAD)
+    // HÀM TẠO VÀ TẢI FILE DXF (AUTOCAD) ĐÃ NÂNG CẤP HÌNH TRÒN & BỎ TÊN TRẠM
     function downloadFile(data, filename, type) {
         var file = new Blob([data], {type: type});
         var a = document.createElement("a"), url = URL.createObjectURL(file);
@@ -564,25 +561,43 @@
         setTimeout(function() { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 0); 
     }
 
+    function removeVietnameseTones(str) {
+        if (!str) return "";
+        return str.normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
     function exportToDXF(layers) {
         let dxf = "0\nSECTION\n2\nENTITIES\n";
         layers.forEach(layer => {
             if (layer instanceof L.Marker) {
                 let lng = layer.getLatLng().lng;
                 let lat = layer.getLatLng().lat;
-                let name = (layer.options.metadata && layer.options.metadata.name) ? layer.options.metadata.name : "";
-                let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram : "";
-                let label = name + (tram ? ` (${tram})` : "");
+                let name = (layer.options.metadata && layer.options.metadata.name) ? layer.options.metadata.name.trim() : "";
+                let type = (layer.options.customData && layer.options.customData.type) ? layer.options.customData.type : "cht";
                 
-                dxf += "0\nPOINT\n8\nDiem_Cot\n10\n" + lng + "\n20\n" + lat + "\n";
-                if (label.trim() !== "") {
-                    dxf += "0\nTEXT\n8\nTen_Cot\n10\n" + lng + "\n20\n" + (lat + 0.00004) + "\n40\n0.00008\n1\n" + label + "\n";
+                // Phân màu CAD: TBA = 1 (Đỏ), Trung thế = 2 (Vàng), Hạ thế = 3 (Xanh lá)
+                let colorCode = (type === 'tba') ? 1 : ((type === 'ctt') ? 2 : 3);
+                // Bán kính vòng tròn cột
+                let radius = (type === 'tba') ? 0.00004 : 0.000025;
+
+                // 1. Vẽ Hình tròn (CIRCLE) đại diện cho cột
+                dxf += "0\nCIRCLE\n8\nCot_Dien\n62\n" + colorCode + "\n10\n" + lng + "\n20\n" + lat + "\n40\n" + radius + "\n";
+                
+                // 2. Vẽ Điểm tâm (POINT) ở chính giữa hình tròn để dễ bắt điểm trong CAD
+                dxf += "0\nPOINT\n8\nTam_Cot\n62\n" + colorCode + "\n10\n" + lng + "\n20\n" + lat + "\n";
+
+                // 3. Viết Tên cột (Chỉ lấy tên cột, không kèm tên trạm)
+                if (name !== "" && name !== "Thiết bị" && name !== "Trạm/Cột mới") {
+                    let cleanName = removeVietnameseTones(name);
+                    dxf += "0\nTEXT\n8\nTen_Cot\n62\n4\n10\n" + (lng + radius * 1.4) + "\n20\n" + (lat - radius * 0.5) + "\n40\n0.00005\n1\n" + cleanName + "\n";
                 }
             } else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
                 let latlngs = layer.getLatLngs();
                 if (Array.isArray(latlngs[0])) latlngs = latlngs[0]; 
                 
-                dxf += "0\nPOLYLINE\n8\nDuong_Day\n66\n1\n";
+                dxf += "0\nPOLYLINE\n8\nDuong_Day\n62\n7\n66\n1\n";
                 latlngs.forEach(ll => {
                     dxf += "0\nVERTEX\n8\nDuong_Day\n10\n" + ll.lng + "\n20\n" + ll.lat + "\n";
                 });
@@ -724,7 +739,7 @@
             document.getElementById('loss-length').value = Math.round(totalWireLength);
             infoDiv.innerHTML = `✅ Đã tìm thấy <b>${poleCount} cột</b> và tổng chiều dài dây đã vẽ là <b>${Math.round(totalWireLength)} m</b>.`;
         } else if (poleCount > 0) {
-            let estLength = poleCount * 38; // Ước tính trung bình 38m/cột nếu chưa vẽ dây
+            let estLength = poleCount * 38;
             document.getElementById('loss-length').value = estLength;
             infoDiv.innerHTML = `ℹ️ Trạm có <b>${poleCount} cột</b> (chưa vẽ đường dây). Tạm ước tính chiều dài ~38m/cột = <b>${estLength} m</b> (Bạn có thể sửa lại số mét).`;
         } else {
@@ -801,10 +816,9 @@
         }
 
         let R_total = R0 * L_km;
-        let X0 = 0.08; // Cảm kháng trung bình cáp vặn xoắn hạ thế (Ω/km)
+        let X0 = 0.08;
         let sinphi = Math.sqrt(1 - cosphi * cosphi);
 
-        // Tính độ sụt áp Delta U (V) và (%)
         let deltaU_V = 0;
         if (isThreePhase) {
             deltaU_V = Math.sqrt(3) * I_amp * L_km * (R0 * cosphi + X0 * sinphi) * distFactor;
@@ -816,7 +830,6 @@
         let U_end = Math.max(0, U - deltaU_V);
         let U_phase_end = isThreePhase ? (U_end / Math.sqrt(3)) : U_end;
 
-        // Tính tổn thất công suất Delta P (kW) & Điện năng thất thoát tháng Delta A (kWh)
         let deltaP_kW = 0;
         if (isThreePhase) {
             deltaP_kW = (3 * Math.pow(I_amp, 2) * R_total * distFactor) / 1000;
@@ -827,7 +840,6 @@
         let deltaA_month = deltaP_kW * hours * 30;
         let lossPercent = (deltaA_month / (monthly_kWh + deltaA_month)) * 100;
 
-        // Đánh giá trạng thái kỹ thuật
         let statusBadge = '';
         let advice = '';
         if (deltaU_percent <= 5 && lossPercent <= 5) {
@@ -1314,7 +1326,6 @@
     }
 
     function toggleAllStations(isCheck) {
-        // Chỉ bật/tắt các trạm đang hiển thị trong kết quả tìm kiếm
         let labels = document.querySelectorAll('#station-filter-list .station-label');
         labels.forEach(lb => {
             if (lb.style.display !== 'none') {
@@ -1361,7 +1372,7 @@
             listContainer.appendChild(label);
         });
 
-        filterStationList(); // Giữ bộ lọc chữ nếu người dùng đang gõ tìm kiếm
+        filterStationList();
         applyStationFilter(); 
     }
 
@@ -1539,7 +1550,6 @@
     }
 
     function exportToExcel() {
-        // CHỈ XUẤT NHỮNG THIẾT BỊ ĐANG HIỂN THỊ TRÊN BẢN ĐỒ (drawnItems)
         if (drawnItems.getLayers().length === 0) { 
             alert("Không có dữ liệu nào đang hiển thị để xuất! Hãy bật hiển thị ít nhất 1 Trạm ở thanh menu bên trái."); 
             return; 
@@ -1577,7 +1587,6 @@
             });
         };
 
-        // Chỉ lặp qua drawnItems, loại bỏ hiddenItems
         drawnItems.eachLayer(processExcel);
 
         try {
