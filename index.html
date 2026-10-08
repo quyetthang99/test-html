@@ -3,155 +3,1177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Công cụ tính Lệch pha & Lưu dữ liệu</title>
+    <title>GIS Hạ Thế Văn Bàn</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px auto; 
-            max-width: 450px; 
-            background-color: #f9f9f9;
-        }
-        .container { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-        }
-        h2 { text-align: center; color: #333; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="number"], input[type="text"] { 
-            width: 100%; 
-            padding: 10px; 
-            box-sizing: border-box; 
-            border: 1px solid #ccc; 
-            border-radius: 4px; 
-            font-size: 16px;
-        }
-        .result-box { 
-            background: #e9ecef; 
-            padding: 15px; 
-            margin-top: 20px; 
-            border-radius: 5px; 
-        }
-        .result-box p { margin: 8px 0; font-size: 16px; }
-        .result-box span { font-weight: bold; color: #d9534f; }
-        button { 
-            padding: 12px; 
-            background: #28a745; 
-            color: white; 
-            border: none; 
-            border-radius: 4px;
-            cursor: pointer; 
-            width: 100%; 
-            font-size: 16px; 
-            margin-top: 15px;
-            font-weight: bold;
-        }
-        button:hover { background: #218838; }
-        button:disabled { background: #6c757d; cursor: not-allowed; }
-        #status { margin-top: 15px; font-weight: bold; text-align: center; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; height: 100vh; overflow: hidden; background: #f8fafc; display: block; }
+        
+        #map-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; z-index: 1; }
+        .drawing-mode-active { cursor: crosshair !important; }
+
+        #sidebar { position: absolute; top: 15px; left: 15px; width: 330px; max-height: calc(100vh - 30px); background: #ffffff; border-radius: 10px; display: flex; flex-direction: column; z-index: 1001; box-shadow: 0 6px 20px rgba(0,0,0,0.25); transition: 0.3s; }
+        #sidebar.collapsed .tool-section, #sidebar.collapsed .footer { display: none; }
+        #sidebar.collapsed .header { border-radius: 10px; } 
+
+        .header { padding: 15px; background: #0284c7; color: white; font-weight: bold; font-size: 1.1rem; border-radius: 10px 10px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: 0.3s;}
+        .header:hover { background: #0369a1; }
+        #sidebar-icon { transition: transform 0.3s; font-size: 1.2rem;}
+        #sidebar:not(.collapsed) #sidebar-icon { transform: rotate(-180deg); }
+
+        .tool-section { padding: 10px 15px; overflow-y: auto; flex-grow: 1; }
+        
+        .accordion-toggle { display: flex; align-items: center; justify-content: space-between; background: #f1f5f9; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; color: #0f172a; font-size: 0.95rem; margin-top: 10px; margin-bottom: 5px; border: 1px solid #cbd5e1; transition: 0.2s; }
+        .accordion-toggle:hover { background: #e2e8f0; }
+        .accordion-content { display: none; padding: 5px 0 10px 10px; border-left: 2px solid #e2e8f0; margin-left: 5px; }
+        .accordion-content.show { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tool-btn { width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; font-size: 0.95rem; color: #1e293b; font-weight: 500;}
+        .tool-btn:hover { background: #f0f9ff; border-color: #0284c7; }
+        .tool-btn.active { background: #e0f2fe; border-color: #0284c7; font-weight: bold; color: #0284c7; box-shadow: inset 3px 0 0 #0284c7;}
+
+        .icon-tba { width: 20px; height: 20px; border: 2px solid #1e293b; background: white; display: flex; align-items: center; justify-content: center; }
+        .icon-tba::after { content: ''; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #fbbf24; margin-top: -2px;}
+        .icon-ctt { width: 16px; height: 16px; background: #fbbf24; border-radius: 50%; border: 2px solid #1e293b; }
+        .icon-cht { width: 16px; height: 16px; background: #22c55e; border: 2px solid #1e293b; }
+        .line-preview { width: 25px; height: 4px; }
+
+        .leaflet-div-icon { background: transparent; border: none; }
+        .custom-labeled-icon { overflow: visible !important; } 
+        .map-icon-tba { width: 24px; height: 24px; border: 2px solid #1e293b; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .map-icon-tba::after { content: ''; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid #fbbf24; margin-top: -2px;}
+        .map-icon-ctt { width: 18px; height: 18px; background: #fbbf24; border-radius: 50%; border: 2px solid #1e293b; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);}
+        .map-icon-cht { width: 18px; height: 18px; background: #22c55e; border: 2px solid #1e293b; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);}
+        .marker-label { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: bold; color: #0f172a; text-shadow: 1.5px 1.5px 0 #fff, -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff; pointer-events: none; z-index: 1000;}
+
+        .footer { padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;}
+        .btn-system { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; font-size: 0.9rem; transition: 0.2s;}
+        .btn-system:hover { filter: brightness(1.1); }
+
+        .search-box { position: absolute; top: 15px; left: 360px; z-index: 1000; background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; gap: 5px; border-left: 4px solid #0284c7;}
+        .search-box input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; width: 220px; outline: none; font-family: inherit; }
+        .search-box button { padding: 8px 15px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .search-box button:hover { background: #0369a1; }
+        
+        .leaflet-control-layers { font-family: 'Segoe UI', sans-serif; border-radius: 8px; padding: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important; }
+        #draw-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(30, 41, 59, 0.9); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.95rem; display: none; pointer-events: none; text-align: center; line-height: 1.5; box-shadow: 0 4px 10px rgba(0,0,0,0.3);}
+        .hint-esc { color: #fca5a5; font-weight: bold; }
+
+        .popup-form { width: 260px; }
+        .popup-form h3 { margin: 0 0 10px 0; color: #0284c7; font-size: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; text-transform: uppercase;}
+        .popup-form input { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-family: inherit;}
+        .popup-form button.btn-save { width: 100%; padding: 10px; background: #16a34a; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px;}
+        
+        .popup-img { width: 100%; border-radius: 8px; margin-top: 10px; max-height: 150px; object-fit: cover; border: 1px solid #e2e8f0; cursor: zoom-in; transition: 0.3s;}
+        .popup-img:hover { filter: brightness(0.9); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .img-count-badge { text-align: center; font-size: 11px; color: #64748b; margin-top: 5px; font-weight: bold; }
+        
+        .action-btns { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+        .action-btns button { padding: 8px; font-size: 0.85rem; flex: 1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; min-width: 30%;}
+        .btn-move { background: #8b5cf6; } .btn-move:hover { background: #7c3aed; }
+        .btn-edit { background: #f59e0b; } .btn-edit:hover { background: #d97706; }
+        .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
+        .btn-continue { background: #10b981; } .btn-continue:hover { background: #059669; }
+        .btn-edit-shape { background: #0284c7; } .btn-edit-shape:hover { background: #0369a1; }
+        .btn-folder { display: block; background: #3b82f6; color: white; padding: 10px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px; font-size: 0.9rem; transition: 0.2s;}
+        .btn-folder:hover { background: #2563eb; }
+
+        .leaflet-control-custom-measure a { font-size: 16px; line-height: 30px; text-align: center; text-decoration: none; color: #333; display: block; background: white;}
+        .leaflet-control-custom-measure a:hover { background-color: #f4f4f4; }
+        .measure-tooltip { background: #0284c7; color: white; border: none; font-weight: bold; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 13px; }
+        .measure-tooltip::before { border-right-color: #0284c7; border-left-color: #0284c7; }
+
+        .leaflet-control-my-location a { font-size: 16px; line-height: 30px; text-align: center; text-decoration: none; color: #333; display: block; background: white;}
+        .leaflet-control-my-location a:hover { background-color: #f4f4f4; }
+
+        #gallery-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        #gallery-modal.show { display: flex; }
+        .close-gallery { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; transition: 0.2s; z-index: 10000; }
+        .close-gallery:hover { color: #ef4444; transform: scale(1.1); }
+        #main-gallery-img { max-width: 90vw; max-height: 70vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain; background: black; }
+        #thumb-strip { display: flex; gap: 12px; margin-top: 25px; max-width: 90vw; overflow-x: auto; padding: 10px 5px; }
+        .thumb-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; opacity: 0.5; transition: 0.3s; border: 3px solid transparent; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3);}
+        .thumb-img:hover { opacity: 0.8; transform: translateY(-3px); }
+        .thumb-img.active { opacity: 1; border-color: #38bdf8; transform: scale(1.05); }
+        #thumb-strip::-webkit-scrollbar { height: 8px; }
+        #thumb-strip::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
+        
+        .leaflet-draw-toolbar a { background-color: #f8fafc !important; border: 1px solid #94a3b8 !important;}
+        .highlighted-line { filter: drop-shadow(0 0 4px rgba(0,0,0,0.6)); cursor: pointer; }
+
+        .station-label { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; background:#f8fafc; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; transition: 0.2s; color: #0f172a; font-weight: 500;}
+        .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
+
+        /* CSS Tùy chỉnh cho Marker Cluster để đẹp hơn */
+        .marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
+        .marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
+        .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
+        .marker-cluster-medium div { background-color: rgba(240, 194, 12, 0.6); }
+        .marker-cluster-large { background-color: rgba(253, 156, 115, 0.6); }
+        .marker-cluster-large div { background-color: rgba(241, 128, 23, 0.6); }
+        .marker-cluster { background-clip: padding-box; border-radius: 20px; }
+        .marker-cluster div { width: 30px; height: 30px; margin-left: 5px; margin-top: 5px; text-align: center; border-radius: 15px; font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif; font-weight: bold; color: #1e293b; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);}
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Tính Lệch Pha</h2>
-
-    <div class="form-group">
-        <label>Tên Trạm / Vị trí:</label>
-        <input type="text" id="tenTram" placeholder="VD: TBA Văn Bàn 1..." required>
-    </div>
-
-    <div class="form-group">
-        <label>Dòng điện pha A (Ia):</label>
-        <input type="number" id="ia" step="any" oninput="tinhToan()">
-    </div>
-    <div class="form-group">
-        <label>Dòng điện pha B (Ib):</label>
-        <input type="number" id="ib" step="any" oninput="tinhToan()">
-    </div>
-    <div class="form-group">
-        <label>Dòng điện pha C (Ic):</label>
-        <input type="number" id="ic" step="any" oninput="tinhToan()">
-    </div>
-
-    <div class="result-box">
-        <p>Dòng trung bình (Itb): <span id="itb_res">0.00</span></p>
-        <p>Dòng điện Io: <span id="i0_res">0.00</span></p>
-        <p>Tỷ lệ lệch pha: <span id="lechpha_res">0.00</span> %</p>
-    </div>
-
-    <button onclick="luuDuLieu()" id="btnSave">Lưu lên Google Sheet</button>
-    <div id="status"></div>
+<div id="gallery-modal">
+    <span class="close-gallery" onclick="closeGallery()">&times;</span>
+    <img id="main-gallery-img" src="" alt="Main Image">
+    <div id="thumb-strip"></div>
 </div>
 
-<script>
-    // ========================================================
-    // BƯỚC QUAN TRỌNG: DÁN LINK WEB APP CỦA BẠN VÀO DƯỚI ĐÂY
-    // ========================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9oqsdk7xnXPQ7QIfb-M-s25T5A17e3PVBF_bo3NSR4gR4V6WuY0aC-aXpVOWVj3Xm/exec";
+<div id="map-container">
+    <div class="search-box">
+        <input type="text" id="coord-input" placeholder="VD: 22.4856, 104.1481">
+        <button onclick="gotoCoords()">📍 Tìm vị trí</button>
+    </div>
+    <div id="draw-hint">🖱️ Click để vẽ.</div>
+    <div id="map"></div>
+</div>
 
-    function tinhToan() {
-        let ia = parseFloat(document.getElementById('ia').value) || 0;
-        let ib = parseFloat(document.getElementById('ib').value) || 0;
-        let ic = parseFloat(document.getElementById('ic').value) || 0;
-        let tenTram = document.getElementById('tenTram').value;
+<div id="sidebar" class="collapsed">
+    <div class="header" onclick="toggleSidebar()">
+        <div>
+            SƠ ĐỒ LƯỚI ĐIỆN HẠ THẾ<br>
+            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN- by Quyết Thắng</span>
+        </div>
+        <div id="sidebar-icon">▼</div>
+    </div>
+    
+    <div class="tool-section">
+        <div class="accordion-toggle" onclick="toggleAcc('acc-tram')"><span>☰ Trạm & Cột Điện</span> <span>▼</span></div>
+        <div id="acc-tram" class="accordion-content show"> 
+            <button class="tool-btn" onclick="setMode(this, 'tba', 'Trạm biến áp')"><div class="icon-tba"></div> Trạm biến áp</button>
+            <button class="tool-btn" onclick="setMode(this, 'ctt', 'Cột trung thế')"><div class="icon-ctt"></div> Cột trung thế</button>
+            <button class="tool-btn" onclick="setMode(this, 'cht', 'Cột hạ thế')"><div class="icon-cht"></div> Cột hạ thế</button>
+        </div>
 
-        let itb = (ia + ib + ic) / 3;
-        let i0 = Math.sqrt(Math.pow(ia, 2) + Math.pow(ib, 2) + Math.pow(ic, 2) - (ia*ib) - (ib*ic) - (ic*ia));
-        let lechpha = (itb === 0) ? 0 : (i0 / itb) * 100;
+        <div class="accordion-toggle" onclick="toggleAcc('acc-35')"><span>☰ Đường dây 35kV</span> <span>▼</span></div>
+        <div id="acc-35" class="accordion-content">
+            <button class="tool-btn" onclick="setMode(this, 'dz35', 'Đường dây 35kV', '#eab308')"><div class="line-preview" style="background:#eab308"></div> ĐZ 35kV Nổi (Vàng)</button>
+            <button class="tool-btn" onclick="setMode(this, 'cn35', 'Cáp ngầm 35kV', '#eab308', '10, 10')"><div class="line-preview" style="border-top:4px dashed #eab308"></div> Cáp ngầm 35kV</button>
+        </div>
 
-        document.getElementById('itb_res').innerText = itb.toFixed(2);
-        document.getElementById('i0_res').innerText = i0.toFixed(2);
-        document.getElementById('lechpha_res').innerText = lechpha.toFixed(2);
+        <div class="accordion-toggle" onclick="toggleAcc('acc-04')"><span>☰ Đường dây 0.4kV</span> <span>▼</span></div>
+        <div id="acc-04" class="accordion-content">
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#ef4444')"><div class="line-preview" style="background:#ef4444"></div> Lộ 0.4kV (Đỏ)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#22c55e')"><div class="line-preview" style="background:#22c55e"></div> Lộ 0.4kV (Xanh lá)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#1e293b')"><div class="line-preview" style="background:#1e293b"></div> Lộ 0.4kV (Đen)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#3b82f6')"><div class="line-preview" style="background:#3b82f6"></div> Lộ 0.4kV (Xanh dương)</button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-advanced')"><span>☰ Sửa nhanh hàng loạt</span> <span>▼</span></div>
+        <div id="acc-advanced" class="accordion-content">
+            <button class="tool-btn" onclick="startPolygonSelect(this)" style="justify-content: center; background: #fdf2f8; color: #e11d48; border-color: #f43f5e;">
+                ⬡ Khoanh vùng đổi tên Trạm
+            </button>
+        </div>
         
-        return { 
-            tenTram: tenTram,
-            ia: ia, 
-            ib: ib, 
-            ic: ic, 
-            i0: parseFloat(i0.toFixed(2)), 
-            lechPha: parseFloat(lechpha.toFixed(2)) 
-        };
+        <div class="accordion-toggle" onclick="toggleAcc('acc-data')"><span>☰ Dữ liệu Excel</span> <span>▼</span></div>
+        <div id="acc-data" class="accordion-content">
+            <button class="tool-btn" onclick="document.getElementById('excel-input').click()" style="justify-content: center; background: #fef08a; color: #b45309; border-color: #f59e0b;">
+                📊 Nhập từ Excel / CSV
+            </button>
+            <input type="file" id="excel-input" style="display:none" accept=".xlsx, .xls, .csv" onchange="importFromExcel(event)">
+            
+            <button class="tool-btn" onclick="exportToExcel()" style="justify-content: center; background: #d9f99d; color: #0f766e; border-color: #84cc16; margin-top: 5px;">
+                📥 Xuất ra file Excel
+            </button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-filter')"><span>☰ Lọc hiển thị theo Trạm</span> <span>▼</span></div>
+        <div id="acc-filter" class="accordion-content">
+            <div style="display:flex; gap:5px; margin-bottom:10px; margin-top:5px; padding-right: 5px;">
+                <button onclick="toggleAllStations(true)" style="flex:1; padding:6px; background:#e0f2fe; border:1px solid #0284c7; border-radius:4px; cursor:pointer; font-weight:bold; color:#0369a1; transition:0.2s;">Bật tất cả</button>
+                <button onclick="toggleAllStations(false)" style="flex:1; padding:6px; background:#fef2f2; border:1px solid #ef4444; border-radius:4px; cursor:pointer; font-weight:bold; color:#b91c1c; transition:0.2s;">Tắt tất cả</button>
+            </div>
+            <div id="station-filter-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:5px; padding-right:5px;">
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Làm mới bản đồ</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
+    function toggleAcc(id) { document.getElementById(id).classList.toggle('show'); }
+
+    function formatDistance(meters) {
+        if (meters > 1000) return (meters / 1000).toFixed(2) + ' km';
+        return meters.toFixed(1) + ' m';
     }
 
-    function luuDuLieu() {
-        let data = tinhToan();
-        let statusDiv = document.getElementById('status');
-        let btn = document.getElementById('btnSave');
+    var positron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM' });
+    var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
 
-        if (!data.tenTram.trim()) {
-            alert("Vui lòng nhập Tên trạm trước khi lưu!");
-            document.getElementById('tenTram').focus();
+    var map = L.map('map', { 
+        center: [22.4856, 104.1481], 
+        zoom: 12, 
+        layers: [positron], 
+        doubleClickZoom: false, 
+        zoomControl: false,
+        preferCanvas: true 
+    });
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    var drawnItems = L.markerClusterGroup({
+        disableClusteringAtZoom: 16, 
+        maxClusterRadius: 35, 
+        spiderfyOnMaxZoom: true,
+        zoomToBoundsOnClick: true,
+        polygonOptions: { fillOpacity: 0, opacity: 0 } 
+    }); 
+    map.addLayer(drawnItems);
+    
+    // Kho chứa các thiết bị đang bị tắt lọc
+    var hiddenItems = new L.FeatureGroup(); 
+    
+    var nationalLayer = new L.FeatureGroup();
+
+    var hanoiIcon = L.divIcon({
+        html: '<div style="font-size: 20px; color: #ef4444; text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; text-align: center; margin-top:-5px;">★</div>',
+        className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+    L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
+
+    var hoangSaIcon = L.divIcon({
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
+        className: '', iconSize: [150, 20], iconAnchor: [75, 10]
+    });
+    L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
+
+    var truongSaIcon = L.divIcon({
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
+        className: '', iconSize: [150, 20], iconAnchor: [75, 10]
+    });
+    L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
+
+    nationalLayer.addTo(map);
+
+    var boundaryLayer = new L.FeatureGroup(); var bounds = [[21.85, 103.5], [22.85, 104.6]]; 
+    L.rectangle(bounds, { color: "#f97316", weight: 3, fillOpacity: 0.05, dashArray: '8, 10' }).addTo(boundaryLayer);
+    map.addLayer(boundaryLayer);
+
+    L.control.layers(
+        { "🗺️ Bản đồ Sạch (Khuyên dùng)": positron, "🛣️ Bản đồ Giao thông": osm, "🛰️ Bản đồ Vệ tinh": satellite },
+        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer },
+        { position: 'topright' }
+    ).addTo(map);
+
+    var drawControl = new L.Control.Draw({ position: 'topright', edit: { featureGroup: drawnItems }, draw: false }); 
+    map.addControl(drawControl);
+
+    L.Control.MeasureCustom = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom-measure');
+            container.innerHTML = `<a href="#" title="Đo khoảng cách (Thước cuộn)" role="button" onclick="toggleMeasureMode(event)">📏</a>`;
+            return container;
+        }
+    });
+    map.addControl(new L.Control.MeasureCustom());
+
+    L.Control.MyLocation = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-my-location');
+            container.innerHTML = `<a href="#" title="Đến vị trí của tôi" role="button" onclick="goToMyLocation(event)">🎯</a>`;
+            return container;
+        }
+    });
+    map.addControl(new L.Control.MyLocation());
+
+    var userLocationMarker = null;
+    var userLocationCircle = null;
+
+    window.createMarkerAtGPS = function(lat, lng, type, title) {
+        if (userLocationMarker) userLocationMarker.closePopup();
+        createMarker([lat, lng], type, title);
+    };
+
+    function goToMyLocation(e) {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        if (!navigator.geolocation) { alert("Trình duyệt không hỗ trợ GPS."); return; }
+        var hint = document.getElementById('draw-hint'); hint.style.display = 'block'; hint.innerHTML = "⏳ Đang lấy tọa độ GPS...";
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                hint.style.display = 'none'; 
+                var lat = position.coords.latitude, lng = position.coords.longitude, accuracy = position.coords.accuracy;
+                map.flyTo([lat, lng], 18);
+                if (userLocationMarker) map.removeLayer(userLocationMarker);
+                if (userLocationCircle) map.removeLayer(userLocationCircle);
+                
+                userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1, interactive: false }).addTo(map);
+                userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
+
+                let popupContent = `
+                    <div style="text-align:center; min-width: 160px;">
+                        <b style="font-size:14px;">📍 Vị trí của bạn</b><br>
+                        <span style="font-size:12px; color:#64748b;">Sai số: ±${Math.round(accuracy)} m</span><br>
+                        <hr style="margin:8px 0; border:0; border-top:1px solid #e2e8f0;">
+                        <b style="font-size:12px; color:#0284c7;">Cắm nhanh thiết bị:</b><br>
+                        <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'tba', 'Trạm biến áp')" style="background:#fef3c7; border:1px solid #f59e0b; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#b45309;">⚡ Trạm biến áp</button>
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'ctt', 'Cột trung thế')" style="background:#fef3c7; border:1px solid #f59e0b; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#b45309;">🔴 Cột trung thế</button>
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'cht', 'Cột hạ thế')" style="background:#dcfce7; border:1px solid #22c55e; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#15803d;">🟢 Cột hạ thế</button>
+                        </div>
+                    </div>
+                `;
+                userLocationMarker.bindPopup(popupContent).openPopup();
+
+                userLocationMarker.on('click', function(e) {
+                    if (isMeasuring) {
+                        measurePoints.push(e.latlng);
+                        if (measurePoints.length === 1) {
+                            measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                            measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+                        } else { measureLine.setLatLngs(measurePoints); }
+                        setTimeout(() => userLocationMarker.closePopup(), 10);
+                        return;
+                    }
+                    if (currentMode) {
+                        if (currentMode === 'tba' || currentMode === 'ctt' || currentMode === 'cht') {
+                            createMarker(e.latlng, currentMode, currentTitle);
+                        } else { addPointToLine(e.latlng); }
+                        setTimeout(() => userLocationMarker.closePopup(), 10);
+                    }
+                });
+
+            },
+            function(error) { 
+                hint.style.display = 'none'; 
+                if (error.code === 1) { 
+                    alert("❌ Không thể lấy vị trí!\nBạn (hoặc trình duyệt) đã từ chối quyền truy cập GPS. Vui lòng cấp quyền 'Vị trí' cho trang web này trong cài đặt trình duyệt để sử dụng tính năng.");
+                } else {
+                    alert("Lỗi GPS: " + error.message); 
+                }
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
+        );
+    }
+
+    var tempMarker = null;
+    function gotoCoords() {
+        var input = document.getElementById('coord-input').value; var parts = input.split(/[ ,;]+/);
+        if (parts.length >= 2) {
+            var lat = parseFloat(parts[0]); var lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.flyTo([lat, lng], 17);
+                if(tempMarker) map.removeLayer(tempMarker);
+                tempMarker = L.marker([lat, lng]).addTo(map).bindPopup("<b>Tìm kiếm:</b><br>" + lat + ", " + lng).openPopup();
+            } else { alert("Tọa độ không hợp lệ!"); }
+        } else { alert("Hãy nhập định dạng: Vĩ độ, Kinh độ"); }
+    }
+
+    var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
+    let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
+    
+    window.movingLayerId = null; 
+    window.editingLayerId = null;
+
+    var polygonDrawer = new L.Draw.Polygon(map, {
+        shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
+    });
+
+    function startPolygonSelect(btnElement) {
+        cancelDrawing(); 
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); 
+        if(btnElement) btnElement.classList.add('active');
+
+        polygonDrawer.enable();
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = "🖱️ <b>Khoanh vùng sửa Trạm:</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+    }
+
+    function isPointInsidePolygon(latlng, polyLayer) {
+        var polyPoints = polyLayer.getLatLngs()[0]; 
+        var x = latlng.lat, y = latlng.lng;
+        var inside = false;
+        for (var i = 0, j = polyPoints.length - 1; i < polyPoints.length; j = i++) {
+            var xi = polyPoints[i].lat, yi = polyPoints[i].lng;
+            var xj = polyPoints[j].lat, yj = polyPoints[j].lng;
+            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    map.on('draw:created', function (e) {
+        if (e.layerType === 'polygon') {
+            let polyLayer = e.layer;
+            map.addLayer(polyLayer);
+
+            let selectedLayers = [];
+            drawnItems.eachLayer(function(layer) {
+                if (layer instanceof L.Marker) {
+                    if (isPointInsidePolygon(layer.getLatLng(), polyLayer)) {
+                        selectedLayers.push(layer);
+                    }
+                } else if (layer instanceof L.Polyline) {
+                    let latlngs = layer.getLatLngs();
+                    let firstPoint = Array.isArray(latlngs[0]) ? latlngs[0][0] : latlngs[0];
+                    if (firstPoint && isPointInsidePolygon(firstPoint, polyLayer)) {
+                        selectedLayers.push(layer);
+                    }
+                }
+            });
+
+            if (selectedLayers.length === 0) {
+                alert("Không tìm thấy thiết bị nào trong vùng vừa khoanh!");
+                map.removeLayer(polyLayer);
+                document.getElementById('draw-hint').style.display = 'none';
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                return;
+            }
+
+            let newTram = prompt(`Đã chọn thành công ${selectedLayers.length} thiết bị/đường dây trong vùng.\n\nHãy nhập tên "Thuộc Trạm" mới cho tất cả thiết bị này:`, "");
+            
+            if (newTram !== null) { 
+                let newName = newTram.trim();
+                selectedLayers.forEach(layer => {
+                    if (!layer.options.metadata) layer.options.metadata = {};
+                    layer.options.metadata.tram = newName;
+                    updatePopupContent(layer);
+                });
+                
+                updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); 
+                autoSaveToCloud(true, `Đã cập nhật hàng loạt Trạm "${newName}" cho ${selectedLayers.length} thiết bị!`);
+            }
+
+            map.removeLayer(polyLayer);
+            document.getElementById('draw-hint').style.display = 'none';
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        }
+    });
+
+    function clearMeasure() {
+        if(measureLine) map.removeLayer(measureLine);
+        if(measureTooltip) map.removeLayer(measureTooltip);
+        measureLine = null; measureTooltip = null; measurePoints = [];
+    }
+
+    function toggleMeasureMode(e) {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        if (isMeasuring) {
+            isMeasuring = false;
+            let btn = document.querySelector('.leaflet-control-custom-measure a');
+            if(btn) { btn.style.backgroundColor = ''; btn.style.border = ''; }
+            clearMeasure();
+            document.getElementById('map').classList.remove('drawing-mode-active');
+            document.getElementById('draw-hint').style.display = 'none';
+        } else {
+            cancelDrawing(); isMeasuring = true;
+            let btn = document.querySelector('.leaflet-control-custom-measure a');
+            if(btn) { btn.style.backgroundColor = '#e0f2fe'; btn.style.border = '2px solid #0284c7'; }
+            document.getElementById('map').classList.add('drawing-mode-active');
+            var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
+            hint.innerHTML = "📏 <b>Chế độ Đo khoảng cách:</b> Click để đo. <b>Click đúp</b> để kết thúc. Nhấn <b>ESC</b> để xóa.";
+        }
+    }
+
+    function cancelDrawing() {
+        if (window.editingLayerId) {
+            saveEditShape();
+            return;
+        }
+        if (window.movingLayerId) { 
+            window.movingLayerId = null; 
+            document.getElementById('map').classList.remove('drawing-mode-active');
+            document.getElementById('draw-hint').style.display = 'none';
+        }
+        if (currentPolyline) { 
+            if (currentPolyline.getLatLngs().length > 1) {
+                finalizePolyline(currentPolyline);
+            } else {
+                map.removeLayer(currentPolyline); 
+            }
+            currentPolyline = null; 
+        }
+        currentMode = null;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('draw-hint').style.display = 'none';
+        document.getElementById('map').classList.remove('drawing-mode-active');
+        if(isMeasuring) { toggleMeasureMode(); } 
+        if(polygonDrawer) { polygonDrawer.disable(); }
+    }
+
+    function setMode(btnElement, mode, title, color = null, dashArray = null) {
+        if (currentMode === mode) { 
+            if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
+            else cancelDrawing(); 
+            return; 
+        }
+        if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
+
+        currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
+        
+        if(isMeasuring) { toggleMeasureMode(); } 
+        if(polygonDrawer) { polygonDrawer.disable(); }
+
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
+        
+        var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
+        if (mode.includes('dz') || mode.includes('cn')) {
+            hint.innerHTML = "🖱️ Click từng điểm để vẽ.<br><span class='hint-esc'>💡 Nhấn ESC, Enter, hoặc đúp chuột để LƯU</span>";
+        } else {
+            hint.innerHTML = "🖱️ Click vào bản đồ để cắm thiết bị.<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT</span>";
+        }
+        document.getElementById('map').classList.add('drawing-mode-active');
+    }
+
+    document.addEventListener('keydown', function(event) { 
+        if (event.key === "Escape") { 
+            closeGallery(); 
+            cancelDrawing(); 
+        } 
+        if (event.key === "Enter") {
+            if (window.editingLayerId) saveEditShape();
+            else if (currentPolyline) finishDrawing();
+        }
+    });
+
+    function addPointToLine(latlng) {
+        if (!currentPolyline) {
+            let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
+            if (currentDash) style.dashArray = currentDash;
+            currentPolyline = L.polyline([latlng], style).addTo(map);
+            currentPolyline.options.customData = { type: currentMode, title: currentTitle, color: currentColor, dash: currentDash };
+            currentPolyline.options.metadata = { name: 'Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
+        } else { 
+            currentPolyline.addLatLng(latlng); 
+        }
+    }
+
+    map.on('click', function(e) {
+        if (window.editingLayerId) return;
+
+        if (window.movingLayerId) {
+            var layerToMove = drawnItems.getLayer(window.movingLayerId);
+            if (layerToMove && layerToMove instanceof L.Marker) {
+                layerToMove.setLatLng(e.latlng);
+                window.movingLayerId = null;
+                document.getElementById('map').classList.remove('drawing-mode-active');
+                document.getElementById('draw-hint').style.display = 'none';
+                autoSaveToCloud(true, "Đã dời vị trí thiết bị thành công!");
+            }
             return;
         }
 
-        if (SCRIPT_URL === "DÁN_LINK_URL_ỨNG_DỤNG_WEB_VÀO_ĐÂY" || SCRIPT_URL === "") {
-            alert("Lỗi: Bạn chưa gắn link API của Google Script vào file HTML!");
+        if (isMeasuring) {
+            measurePoints.push(e.latlng);
+            if (measurePoints.length === 1) {
+                measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+            } else { measureLine.setLatLngs(measurePoints); }
             return;
         }
 
-        statusDiv.innerText = "⏳ Đang lưu dữ liệu...";
-        statusDiv.style.color = "#007bff";
-        btn.disabled = true;
+        if (!currentMode) return;
+        if (currentMode === 'tba' || currentMode === 'ctt' || currentMode === 'cht') {
+            createMarker(e.latlng, currentMode, currentTitle);
+        } else { addPointToLine(e.latlng); }
+    });
 
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        }).then(() => {
-            statusDiv.innerText = "✅ Đã lưu dữ liệu thành công!";
-            statusDiv.style.color = "green";
-            btn.disabled = false;
-        }).catch(error => {
-            statusDiv.innerText = "❌ Có lỗi xảy ra. Vui lòng thử lại!";
-            statusDiv.style.color = "red";
-            btn.disabled = false;
+    map.on('mousemove', function(e) {
+        if (isMeasuring && measurePoints.length > 0) {
+            let tempPoints = [...measurePoints, e.latlng]; measureLine.setLatLngs(tempPoints);
+            let dist = 0; for(let i=0; i<tempPoints.length-1; i++) dist += map.distance(tempPoints[i], tempPoints[i+1]);
+            measureTooltip.setLatLng(e.latlng).setContent(formatDistance(dist));
+        }
+    });
+
+    drawnItems.on('click', function(e) {
+        if (window.editingLayerId) return;
+
+        if (window.movingLayerId) {
+            var layerToMove = drawnItems.getLayer(window.movingLayerId);
+            if (layerToMove && layerToMove instanceof L.Marker) {
+                layerToMove.setLatLng(e.latlng);
+                window.movingLayerId = null;
+                document.getElementById('map').classList.remove('drawing-mode-active');
+                document.getElementById('draw-hint').style.display = 'none';
+                autoSaveToCloud(true, "Đã dời vị trí thiết bị thành công!");
+            }
+            return;
+        }
+
+        if (isMeasuring) {
+            measurePoints.push(e.latlng);
+            if (measurePoints.length === 1) {
+                measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+            } else { measureLine.setLatLngs(measurePoints); }
+            setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
+            return;
+        }
+        
+        if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
+            addPointToLine(e.latlng); 
+
+            if (e.layer && e.layer.options && e.layer.options.metadata) {
+                let clickedTram = e.layer.options.metadata.tram;
+                if (clickedTram && clickedTram.trim() !== "") {
+                    if (currentPolyline) {
+                        if (!currentPolyline.options.metadata.tram || currentPolyline.options.metadata.tram === "") {
+                            currentPolyline.options.metadata.tram = clickedTram.trim();
+                        }
+                    }
+                }
+            }
+            return;
+        }
+    });
+
+    map.on('dblclick', finishDrawing); map.on('contextmenu', finishDrawing);
+    
+    function finishDrawing(e) {
+        if (e && e.originalEvent) e.originalEvent.preventDefault();
+        if (isMeasuring) { isMeasuring = false; document.getElementById('draw-hint').innerHTML = "📏 Đo xong. Nhấn <b>ESC</b> để xóa."; return; }
+        if (currentPolyline) { 
+            if (currentPolyline.getLatLngs().length > 1) {
+                finalizePolyline(currentPolyline); 
+            } else {
+                map.removeLayer(currentPolyline);
+            }
+            currentPolyline = null; 
+        }
+    }
+
+    function finalizePolyline(polyLayer) {
+        if (map.hasLayer(polyLayer)) map.removeLayer(polyLayer); 
+        polyLayer.setStyle({ interactive: true }); 
+        
+        let latlngs = polyLayer.getLatLngs(); 
+        let dist = 0;
+        for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
+        polyLayer.options.customData.length = dist; 
+        
+        if (!drawnItems.hasLayer(polyLayer)) drawnItems.addLayer(polyLayer); 
+        
+        editLayerData(L.stamp(polyLayer), true);
+        updateStationFilterUI('Chưa phân trạm'); 
+        autoSaveToCloud(); 
+    }
+
+    function getCustomIcon(type, labelText) {
+        let iconClass = 'map-icon-' + type; let displayLabel = (labelText && labelText !== 'Thiết bị' && labelText !== 'Trạm/Cột mới') ? labelText : '';
+        let html = `<div class="${iconClass}"></div><div class="marker-label">${displayLabel}</div>`;
+        return L.divIcon({ html: html, className: 'custom-labeled-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
+    }
+
+    function generateId() { return 'LK-' + Math.random().toString(36).substring(2, 8).toUpperCase(); }
+
+    function createMarker(latlng, type, title) {
+        let marker = L.marker(latlng, { icon: getCustomIcon(type, '') }).addTo(drawnItems);
+        marker.options.customData = { type: type, title: title }; 
+        marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
+        editLayerData(L.stamp(marker), true);
+        
+        updateStationFilterUI('Chưa phân trạm'); 
+        autoSaveToCloud(); 
+    }
+
+    map.on('popupopen', function(e) {
+        if (currentMode || isMeasuring || window.movingLayerId || window.editingLayerId) {
+            map.closePopup();
+            return;
+        }
+
+        var layer = e.popup._source;
+        if (layer && layer instanceof L.Polyline && layer.getLatLngs && !(layer instanceof L.Polygon)) { 
+            layer.setStyle({ weight: 10, opacity: 1, className: 'highlighted-line' }); if (layer.bringToFront) layer.bringToFront();
+        }
+    });
+
+    map.on('popupclose', function(e) {
+        var layer = e.popup._source;
+        
+        if (layer && layer instanceof L.Polyline && layer.getLatLngs && map.hasLayer(layer) && !(layer instanceof L.Polygon)) {
+            let custom = layer.options.customData || {}; layer.setStyle({ weight: 4, opacity: 0.9, color: custom.color || '#3388ff', dashArray: custom.dash || null, className: '' });
+        }
+
+        if (tempMarker && layer === tempMarker) {
+            map.removeLayer(tempMarker);
+            tempMarker = null;
+        }
+
+        if (userLocationMarker && layer === userLocationMarker) {
+            map.removeLayer(userLocationMarker);
+            userLocationMarker = null;
+            if (userLocationCircle) {
+                map.removeLayer(userLocationCircle);
+                userLocationCircle = null;
+            }
+        }
+    });
+
+    function fixGoogleDriveLink(url) {
+        var match = url.trim().match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url.trim(); 
+    }
+
+    window.startMoveLayer = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+        window.movingLayerId = layerId;
+        
+        document.getElementById('map').classList.add('drawing-mode-active');
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = "📍 <b>Chế độ Dời vị trí:</b> Click vào chỗ trống trên bản đồ để chuyển thiết bị tới đó.<br><span class='hint-esc'>💡 Nhấn ESC để HỦY</span>";
+    };
+
+    window.continueLine = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+        
+        currentPolyline = layer;
+        
+        let custom = layer.options.customData || {};
+        currentMode = custom.type || 'dz04'; 
+        currentTitle = custom.title || 'Đường dây';
+        currentColor = custom.color || '#ef4444';
+        currentDash = custom.dash || null;
+
+        document.getElementById('map').classList.add('drawing-mode-active');
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = `🔗 <b>Đang Vẽ Tiếp:</b> Click để nối dài dây.<br><button onclick="finishDrawing()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 XONG / LƯU LẠI</button>`;
+    };
+
+    window.startEditShape = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+
+        if (layer.editing) {
+            layer.editing.enable();
+            window.editingLayerId = layerId;
+            
+            var hint = document.getElementById('draw-hint');
+            hint.style.display = 'block';
+            hint.innerHTML = `🛠️ <b>Sửa Mốc Dây:</b> Nhấn giữ và kéo các ô vuông để nắn dây.<br><button onclick="saveEditShape()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 LƯU LẠI</button>`;
+        }
+    };
+
+    window.saveEditShape = function() {
+        if (window.editingLayerId) {
+            var layer = drawnItems.getLayer(window.editingLayerId);
+            if (layer && layer.editing) {
+                layer.editing.disable();
+                
+                let latlngs = layer.getLatLngs(); let dist = 0;
+                if (latlngs.length > 0 && !Array.isArray(latlngs[0])) {
+                    for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
+                    if(!layer.options.customData) layer.options.customData = {};
+                    layer.options.customData.length = dist; 
+                }
+                updatePopupContent(layer);
+                autoSaveToCloud(true, "Đã cập nhật hình dáng dây!");
+            }
+            window.editingLayerId = null;
+            document.getElementById('draw-hint').style.display = 'none';
+        }
+    };
+
+    window.editLayerData = function(layerId, isNew = false) {
+        var layer = drawnItems.getLayer(layerId); if(!layer) return;
+        var meta = layer.options.metadata || {}; var custom = layer.options.customData || {};
+        
+        meta.name = meta.name || ''; meta.info = meta.info || ''; 
+        meta.tram = meta.tram || ''; meta.img = meta.img || ''; 
+        if(!meta.maLienKet) meta.maLienKet = generateId(); 
+
+        var form = `
+            <div class="popup-form">
+                <h3>${isNew ? `Thêm Mới: ${custom.title || ''}` : `Sửa Thông Tin`}</h3>
+                <input type="text" id="p-name-${layerId}" value="${meta.name}" placeholder="Tên thiết bị (hiện dưới icon)">
+                <input type="text" id="p-info-${layerId}" value="${meta.info}" placeholder="Chức năng / Thông số kỹ thuật">
+                <input type="text" id="p-tram-${layerId}" value="${meta.tram}" placeholder="Thuộc trạm (VD: Trạm Thôn Vinh)">
+                <input type="text" id="p-img-${layerId}" value="${meta.img}" placeholder="Dán Link Ảnh / Link Drive">
+                <input type="text" id="p-ma-${layerId}" value="${meta.maLienKet}" placeholder="Mã LK (Tự sinh)" style="background:#f8fafc; font-size:12px; color:#64748b;" readonly title="Mã liên kết tự động sinh ra">
+                <button class="btn-save" onclick="saveEditData(${layerId})">💾 Lưu Thông Tin</button>
+            </div>`;
+        if(isNew) layer.bindPopup(form).openPopup(); else layer.setPopupContent(form);
+    };
+
+    window.saveEditData = function(layerId) {
+        var layer = drawnItems.getLayer(layerId); if(!layer) return;
+        let newName = document.getElementById(`p-name-${layerId}`).value || 'Thiết bị';
+        let newTram = document.getElementById(`p-tram-${layerId}`).value || '';
+        
+        layer.options.metadata = { 
+            name: newName, 
+            info: document.getElementById(`p-info-${layerId}`).value || '', 
+            tram: newTram,
+            img: document.getElementById(`p-img-${layerId}`).value || '',
+            maLienKet: document.getElementById(`p-ma-${layerId}`).value || ''
+        };
+        
+        if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
+        updatePopupContent(layer);
+        
+        let tramKey = newTram.trim() === '' ? 'Chưa phân trạm' : newTram.trim();
+        updateStationFilterUI(tramKey); 
+        
+        autoSaveToCloud(); 
+    };
+
+    window.deleteLayerQuick = function(layerId) { 
+        if(confirm("Xóa đối tượng này khỏi bản đồ?")) { 
+            var layer = drawnItems.getLayer(layerId); 
+            if(layer) {
+                map.closePopup(); 
+                drawnItems.removeLayer(layer); 
+                updateStationFilterUI(); 
+                autoSaveToCloud(); 
+            }
+        } 
+    };
+
+    function updatePopupContent(layer) {
+        var meta = layer.options.metadata || {}; var custom = layer.options.customData || {}; var layerId = L.stamp(layer);
+        var content = `<div class="popup-form"><h3>${custom.title || ''} - ${meta.name || ''}</h3>`;
+        
+        if (custom.length !== undefined) {
+            content += `<div style="background:#e0f2fe; color:#0369a1; padding:6px; border-radius:4px; font-size:13px; font-weight:bold; margin-bottom:8px; text-align:center; border: 1px dashed #0284c7;">📏 Chiều dài: ${formatDistance(custom.length)}</div>`;
+        }
+
+        if (meta.info) content += `<p style="margin:5px 0;"><b>Thông số:</b> ${meta.info}</p>`;
+        if (meta.maLienKet) content += `<p style="margin:5px 0; font-size:12px; color:#475569;"><b>🔗 Mã LK:</b> ${meta.maLienKet}</p>`;
+        if (meta.tram) content += `<p style="margin:5px 0;"><b>🏢 Trạm:</b> <span style="color:#b45309; font-weight:bold;">${meta.tram}</span></p>`;
+
+        var imgStr = meta.img ? meta.img.toString().trim() : '';
+        if (imgStr.includes('drive.google.com') && imgStr.includes('/folders/')) {
+            content += `<a href="${imgStr}" target="_blank" class="btn-folder">📂 Mở thư mục ảnh (Google Drive)</a>`;
+        } else {
+            var imgArr = imgStr.split(',').map(s => fixGoogleDriveLink(s)).filter(s => s);
+            if(imgArr.length > 0) {
+                var safeArr = encodeURIComponent(JSON.stringify(imgArr));
+                content += `<img src="${imgArr[0]}" class="popup-img" title="Click để xem" onclick="openGallery('${safeArr}')" onerror="this.style.display='none'">`;
+                if(imgArr.length > 1) { content += `<div class="img-count-badge">📷 Có ${imgArr.length} ảnh. Click vào ảnh để xem toàn bộ.</div>`; }
+            }
+        }
+        
+        let moveBtn = (layer instanceof L.Marker) ? `<button class="btn-move" onclick="startMoveLayer(${layerId})">📍 Dời cột</button>` : '';
+        let lineBtns = (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) ? 
+            `<button class="btn-continue" onclick="continueLine(${layerId})">🔗 Vẽ tiếp</button>
+             <button class="btn-edit-shape" onclick="startEditShape(${layerId})">🛠️ Sửa mốc</button>` : '';
+        
+        content += `<div class="action-btns">
+            ${moveBtn}
+            ${lineBtns}
+            <button class="btn-edit" onclick="editLayerData(${layerId})">✏️ Sửa TT</button>
+            <button class="btn-delete" onclick="deleteLayerQuick(${layerId})">🗑️ Xóa</button>
+        </div></div>`;
+        
+        layer.bindPopup(content); if(layer.isPopupOpen()) layer.setPopupContent(content);
+    }
+
+    window.openGallery = function(safeArrStr) {
+        var arr = JSON.parse(decodeURIComponent(safeArrStr)); document.getElementById('gallery-modal').classList.add('show');
+        var mainImg = document.getElementById('main-gallery-img'); var strip = document.getElementById('thumb-strip'); strip.innerHTML = '';
+        arr.forEach((src, idx) => {
+            let img = document.createElement('img'); img.src = src; img.className = 'thumb-img' + (idx === 0 ? ' active' : '');
+            img.onclick = function() { mainImg.src = src; document.querySelectorAll('.thumb-img').forEach(t => t.classList.remove('active')); img.classList.add('active'); };
+            strip.appendChild(img);
+        }); mainImg.src = arr[0];
+    };
+    window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
+
+    // ==========================================
+    // LOGIC: LỌC TRẠM THÔNG MINH BẬT / TẮT
+    // ==========================================
+    function getCheckedStations() {
+        let checkboxes = document.querySelectorAll('.station-cb');
+        let checked = [];
+        checkboxes.forEach(cb => { if(cb.checked) checked.push(cb.value); });
+        return checked;
+    }
+
+    function toggleAllStations(isCheck) {
+        let checkboxes = document.querySelectorAll('.station-cb');
+        checkboxes.forEach(cb => cb.checked = isCheck);
+        applyStationFilter();
+    }
+
+    function updateStationFilterUI(forceCheckStation = null) {
+        let currentChecked = getCheckedStations(); 
+        let stations = new Set();
+        
+        const collectStation = layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            stations.add(tram === '' ? 'Chưa phân trạm' : tram);
+        };
+
+        drawnItems.eachLayer(collectStation);
+        hiddenItems.eachLayer(collectStation);
+
+        let stationArray = Array.from(stations).sort();
+        let listContainer = document.getElementById('station-filter-list');
+        listContainer.innerHTML = '';
+
+        let isFirstLoad = (currentChecked.length === 0 && document.querySelectorAll('.station-cb').length === 0);
+
+        stationArray.forEach(tram => {
+            let isChecked = isFirstLoad || currentChecked.includes(tram) || tram === forceCheckStation;
+            
+            let label = document.createElement('label');
+            label.className = 'station-label';
+            
+            let cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'station-cb';
+            cb.value = tram;
+            cb.checked = isChecked;
+            cb.onchange = applyStationFilter;
+
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(tram));
+            listContainer.appendChild(label);
+        });
+
+        applyStationFilter(); 
+    }
+
+    function applyStationFilter() {
+        let checkedStations = getCheckedStations();
+        
+        drawnItems.eachLayer(layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === '') tram = 'Chưa phân trạm';
+
+            if (!checkedStations.includes(tram)) {
+                drawnItems.removeLayer(layer); 
+                hiddenItems.addLayer(layer);   
+                if (layer.isPopupOpen()) layer.closePopup();
+            }
+        });
+
+        hiddenItems.eachLayer(layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === '') tram = 'Chưa phân trạm';
+
+            if (checkedStations.includes(tram)) {
+                hiddenItems.removeLayer(layer);
+                drawnItems.addLayer(layer); 
+            }
         });
     }
-</script>
 
+    map.on('moveend', applyStationFilter);
+    map.on('zoomend', applyStationFilter);
+
+    // ==========================================
+    // KHÔI PHỤC LẠI HÀM LƯU GỐC AN TOÀN CHO FIREBASE
+    // ==========================================
+    const FIREBASE_URL = 'https://luoi-dien-van-ban-default-rtdb.asia-southeast1.firebasedatabase.app/dulieu.json';
+
+    function autoLoadFromCloud() {
+        if (FIREBASE_URL.includes("DÁN-LINK")) {
+            console.log("Bạn chưa cấu hình link Firebase."); return;
+        }
+
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block'; hint.innerHTML = "⏳ Đang tải dữ liệu lưới điện từ Firebase...";
+        
+        fetch(FIREBASE_URL)
+        .then(response => response.json())
+        .then(res => {
+            hint.style.display = 'none';
+            if (!res || !res.features) return; 
+            
+            drawnItems.clearLayers();
+            hiddenItems.clearLayers();
+            L.geoJSON(res, {
+                pointToLayer: function(feature, latlng) {
+                    let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
+                },
+                style: function(feature) {
+                    let custom = feature.properties.customData || {}; let style = { weight: 4, color: custom.color || '#3388ff' };
+                    if(custom.dash) style.dashArray = custom.dash; return style;
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.options.metadata = feature.properties.metadata || {}; 
+                    layer.options.customData = feature.properties.customData || { type: 'tba', title: 'Thiết bị cũ' };
+                    if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
+                    drawnItems.addLayer(layer); updatePopupContent(layer); 
+                }
+            });
+            if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            
+            updateStationFilterUI();
+        })
+        .catch(err => {
+            hint.style.display = 'none';
+            console.error("Lỗi tải dữ liệu Firebase:", err);
+        });
+    }
+
+    function autoSaveToCloud(showSuccessAlert = false, customMsg = "") {
+        if (FIREBASE_URL.includes("DÁN-LINK")) return; 
+
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
+
+        var data = { type: "FeatureCollection", features: [] };
+
+        const processSave = function(layer) {
+            if (layer.toGeoJSON) {
+                var geo = layer.toGeoJSON();
+                geo.properties = { metadata: layer.options.metadata, customData: layer.options.customData };
+                data.features.push(geo);
+            }
+        };
+
+        drawnItems.eachLayer(processSave);
+        hiddenItems.eachLayer(processSave);
+
+        fetch(FIREBASE_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Lỗi từ Firebase Database');
+            return response.json();
+        })
+        .then(res => {
+            hint.style.display = 'none';
+            if (showSuccessAlert) alert("✅ " + (customMsg || "Đã đồng bộ thành công!"));
+        })
+        .catch(err => {
+            hint.style.display = 'none';
+            console.error("Lỗi lưu dữ liệu:", err);
+            alert("❌ Lỗi đồng bộ máy chủ Firebase!\nKiểm tra lại kết nối mạng của bạn.");
+        });
+    }
+
+    window.onload = autoLoadFromCloud;
+
+    // ==========================================
+    // NHẬP XUẤT EXCEL
+    // ==========================================
+    function parseCoordStr(str) {
+        if (!str) return null; let s = str.toString().replace(/,/g, '.').trim(); let val = parseFloat(s); if (isNaN(val)) return null;
+        if (val > 1000) { let sNum = val.toString().replace('.', ''); if (sNum.startsWith('10')) return parseFloat(sNum.substring(0, 3) + '.' + sNum.substring(3)); else return parseFloat(sNum.substring(0, 2) + '.' + sNum.substring(2)); }
+        return val;
+    }
+
+    function importFromExcel(event) {
+        let file = event.target.files[0]; if (!file) return; let reader = new FileReader();
+        reader.onload = function(e) {
+            let data = new Uint8Array(e.target.result); let workbook = XLSX.read(data, {type: 'array'});
+            let json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]); let count = 0;
+            json.forEach(row => {
+                let getVal = (kws) => { let key = Object.keys(row).find(k => kws.some(kw => k.toLowerCase().includes(kw))); return key ? row[key] : null; };
+                
+                let ten = getVal(['tên', 'name']) || ''; 
+                let rawLat = getVal(['lat', 'vĩ', 'y']); 
+                let rawLong = getVal(['long', 'lng', 'kinh', 'x']); 
+                let chucNang = getVal(['chức', 'loại', 'type']) || ''; 
+                let dAnh = getVal(['ảnh', 'image', 'img', 'link', 'hinh']) || '';
+                
+                let maLienKet = getVal(['mã', 'ma', 'liên kết', 'id']) || generateId(); 
+                let tenTram = getVal(['trạm', 'tram', 'station']) || '';
+
+                if (rawLong && rawLat) {
+                    let c1 = parseCoordStr(rawLong); let c2 = parseCoordStr(rawLat);
+                    let realLat = (c1 > 10 && c1 < 25) ? c1 : ((c2 > 10 && c2 < 25) ? c2 : null);
+                    let realLng = (c1 > 100 && c1 < 110) ? c1 : ((c2 > 100 && c2 < 110) ? c2 : null);
+
+                    if (realLat && realLng) {
+                        let type = 'ctt'; let title = 'Cột trung thế'; let cLow = chucNang.toString().toLowerCase();
+                        if (cLow.includes('trạm') || cLow.includes('tba')) { type = 'tba'; title = 'Trạm biến áp'; } else if (cLow.includes('hạ')) { type = 'cht'; title = 'Cột hạ thế'; }
+                        
+                        let marker = L.marker([realLat, realLng], { icon: getCustomIcon(type, ten) }).addTo(drawnItems);
+                        marker.options.customData = { type: type, title: title }; 
+                        marker.options.metadata = { name: ten || 'Trạm/Cột mới', info: chucNang, img: dAnh, tram: tenTram, maLienKet: maLienKet };
+                        updatePopupContent(marker); count++;
+                    }
+                }
+            });
+            if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            
+            updateStationFilterUI();
+            autoSaveToCloud(true, `Đã nạp thành công ${count} thiết bị từ Excel và đồng bộ lên Firebase!`);
+        };
+        reader.readAsArrayBuffer(file); event.target.value = ''; 
+    }
+
+    function exportToExcel() {
+        // CHỈ XUẤT NHỮNG THIẾT BỊ ĐANG HIỂN THỊ TRÊN BẢN ĐỒ (drawnItems)
+        if (drawnItems.getLayers().length === 0) { 
+            alert("Không có dữ liệu nào đang hiển thị để xuất! Hãy bật hiển thị ít nhất 1 Trạm ở thanh menu bên trái."); 
+            return; 
+        }
+        let excelData = [];
+        
+        const processExcel = function(layer) {
+            let meta = layer.options.metadata || {}; 
+            let custom = layer.options.customData || {};
+            let lat = '', lng = '';
+            
+            if (layer instanceof L.Marker) {
+                lat = layer.getLatLng().lat.toFixed(8); 
+                lng = layer.getLatLng().lng.toFixed(8);
+            } else if (layer instanceof L.Polyline && layer.getLatLngs) {
+                let pts = layer.getLatLngs();
+                if(pts.length > 0 && !Array.isArray(pts[0])) { 
+                    lat = pts[0].lat.toFixed(8); 
+                    lng = pts[0].lng.toFixed(8); 
+                } 
+                else if (pts.length > 0 && Array.isArray(pts[0]) && pts[0].length > 0) { 
+                    lat = pts[0][0].lat.toFixed(8); 
+                    lng = pts[0][0].lng.toFixed(8); 
+                }
+            }
+
+            excelData.push({
+                "tên": meta.name || '',
+                "lat": lat,
+                "long": lng,
+                "chức năng": meta.info || custom.title || '',
+                "link": meta.img || '',
+                "mã liên kết": meta.maLienKet || '',
+                "trạm": meta.tram || ''
+            });
+        };
+
+        // Chỉ lặp qua drawnItems, loại bỏ hiddenItems
+        drawnItems.eachLayer(processExcel);
+
+        try {
+            let ws = XLSX.utils.json_to_sheet(excelData);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            XLSX.writeFile(wb, "DuLieu_DienLuc_Xuat.xlsx");
+        } catch(err) { 
+            alert("Có lỗi khi xuất file Excel: " + err.message); 
+        }
+    }
+</script>
 </body>
 </html>
