@@ -114,6 +114,30 @@
         .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
         .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
 
+        /* CSS Ô tìm kiếm trạm */
+        .station-search-input { width: 100%; padding: 8px 10px; margin-bottom: 8px; border: 1px solid #94a3b8; border-radius: 6px; box-sizing: border-box; font-size: 13px; outline: none; font-family: inherit; background: #fff;}
+        .station-search-input:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2); }
+
+        /* CSS Modal Tính Tổn Thất */
+        #loss-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 9998; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #loss-modal.show { display: flex; }
+        .loss-card { background: white; width: 460px; max-width: 94vw; max-height: 92vh; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.35); display: flex; flex-direction: column; overflow: hidden; animation: fadeIn 0.25s ease; }
+        .loss-header { background: #0284c7; color: white; padding: 14px 18px; font-weight: bold; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: center; }
+        .loss-header span.close-btn { cursor: pointer; font-size: 24px; line-height: 1; transition: 0.2s; }
+        .loss-header span.close-btn:hover { color: #fca5a5; }
+        .loss-body { padding: 16px 18px; overflow-y: auto; font-size: 13.5px; color: #1e293b; }
+        .loss-group { margin-bottom: 11px; }
+        .loss-group label { display: block; font-weight: 600; margin-bottom: 4px; color: #334155; font-size: 13px; }
+        .loss-group input, .loss-group select { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: inherit; font-size: 13.5px; outline: none; }
+        .loss-group input:focus, .loss-group select:focus { border-color: #0284c7; }
+        .loss-row { display: flex; gap: 10px; }
+        .loss-row .loss-group { flex: 1; }
+        .loss-result { background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0284c7; border-radius: 6px; padding: 12px; margin-top: 12px; display: none; line-height: 1.6; }
+        .badge-status { display: inline-block; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .badge-good { background: #dcfce7; color: #15803d; }
+        .badge-warn { background: #fef3c7; color: #b45309; }
+        .badge-danger { background: #fee2e2; color: #b91c1c; }
+
         /* CSS Tùy chỉnh cho Marker Cluster để đẹp hơn */
         .marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
         .marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
@@ -131,6 +155,94 @@
     <span class="close-gallery" onclick="closeGallery()">&times;</span>
     <img id="main-gallery-img" src="" alt="Main Image">
     <div id="thumb-strip"></div>
+</div>
+
+<!-- MODAL TÍNH TỔN THẤT & SỤT ÁP -->
+<div id="loss-modal">
+    <div class="loss-card">
+        <div class="loss-header">
+            <span>🧮 TÍNH TỔN THẤT & SỤT ÁP HẠ THẾ</span>
+            <span class="close-btn" onclick="closeLossModal()">&times;</span>
+        </div>
+        <div class="loss-body">
+            <div class="loss-group">
+                <label>🏢 Chọn Trạm Biến Áp trên bản đồ (Để tự động đo dây/cột):</label>
+                <select id="loss-station-select" onchange="onSelectStationForLoss()">
+                    <option value="">-- Nhập thông số thủ công --</option>
+                </select>
+                <div id="loss-station-info" style="font-size: 12px; color: #0284c7; margin-top: 4px; display: none;"></div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label>📏 Chiều dài trục (m):</label>
+                    <input type="number" id="loss-length" value="1400" placeholder="VD: 1400">
+                </div>
+                <div class="loss-group">
+                    <label>〰️ Loại cáp vặn xoắn / Dây:</label>
+                    <select id="loss-cable">
+                        <option value="0.92">ABC 4x35 (R₀ = 0.92 Ω/km)</option>
+                        <option value="0.64" selected>ABC 4x50 (R₀ = 0.64 Ω/km)</option>
+                        <option value="0.44">ABC 4x70 (R₀ = 0.44 Ω/km)</option>
+                        <option value="0.32">ABC 4x95 (R₀ = 0.32 Ω/km)</option>
+                        <option value="0.25">ABC 4x120 (R₀ = 0.25 Ω/km)</option>
+                        <option value="0.46">Dây trần AC-70 (R₀ = 0.46 Ω/km)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label>⚡ Điện áp đầu nguồn (V):</label>
+                    <select id="loss-voltage">
+                        <option value="380" selected>3 Pha (380V)</option>
+                        <option value="400">3 Pha đầu trạm cao (400V)</option>
+                        <option value="220">1 Pha (220V)</option>
+                    </select>
+                </div>
+                <div class="loss-group">
+                    <label>📊 Cách nhập phụ tải:</label>
+                    <select id="loss-load-type" onchange="toggleLoadInputType()">
+                        <option value="kwh" selected>Sản lượng tháng (kWh)</option>
+                        <option value="amp">Dòng điện đo được (Ampe)</option>
+                        <option value="kw">Công suất (kW)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label id="loss-load-label">🔌 Sản lượng tiêu thụ (kWh/tháng):</label>
+                    <input type="number" id="loss-load-val" value="2700" placeholder="VD: 2700">
+                </div>
+                <div class="loss-group" id="loss-hours-group">
+                    <label>⏱️ Giờ chạy TB/ngày (giờ):</label>
+                    <input type="number" id="loss-hours" value="8" min="1" max="24" placeholder="VD: 8">
+                </div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label>🎯 Vị trí phụ tải:</label>
+                    <select id="loss-load-dist">
+                        <option value="1" selected>Tập trung ở cuối nguồn (Bất lợi nhất)</option>
+                        <option value="0.5">Phân bố đều dọc tuyến (Hệ số 0.5)</option>
+                        <option value="0.33">Tải sinh hoạt rải đều (Hệ số 1/3)</option>
+                    </select>
+                </div>
+                <div class="loss-group">
+                    <label>⚙️ Hệ số Cos φ:</label>
+                    <input type="number" id="loss-cosphi" value="0.85" step="0.05" min="0.5" max="1">
+                </div>
+            </div>
+
+            <button onclick="calculatePowerLoss()" style="width:100%; padding:11px; background:#0284c7; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; margin-top:4px; transition:0.2s;">
+                ⚡ PHÂN TÍCH SỤT ÁP & TỔN THẤT
+            </button>
+
+            <div id="loss-result-box" class="loss-result"></div>
+        </div>
+    </div>
 </div>
 
 <div id="map-container">
@@ -173,14 +285,20 @@
             <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#3b82f6')"><div class="line-preview" style="background:#3b82f6"></div> Lộ 0.4kV (Xanh dương)</button>
         </div>
 
-        <div class="accordion-toggle" onclick="toggleAcc('acc-advanced')"><span>☰ Sửa nhanh hàng loạt</span> <span>▼</span></div>
+        <div class="accordion-toggle" onclick="toggleAcc('acc-advanced')"><span>☰ Công cụ & Tính Tổn Thất</span> <span>▼</span></div>
         <div id="acc-advanced" class="accordion-content">
-            <button class="tool-btn" onclick="startPolygonSelect(this)" style="justify-content: center; background: #fdf2f8; color: #e11d48; border-color: #f43f5e;">
+            <button class="tool-btn" onclick="startPolygonSelect(this, 'change_station')" style="justify-content: center; background: #fdf2f8; color: #e11d48; border-color: #f43f5e;">
                 ⬡ Khoanh vùng đổi tên Trạm
+            </button>
+            <button class="tool-btn" onclick="startPolygonSelect(this, 'export_cad')" style="justify-content: center; background: #f0fdf4; color: #16a34a; border-color: #22c55e;">
+                ⬡ Khoanh vùng Xuất CAD (.dxf)
+            </button>
+            <button class="tool-btn" onclick="openLossModal()" style="justify-content: center; background: #eff6ff; color: #1d4ed8; border-color: #3b82f6;">
+                🧮 Tính Tổn Thất & Sụt Áp
             </button>
         </div>
         
-        <div class="accordion-toggle" onclick="toggleAcc('acc-data')"><span>☰ Dữ liệu Excel</span> <span>▼</span></div>
+        <div class="accordion-toggle" onclick="toggleAcc('acc-data')"><span>☰ Xuất / Nhập Dữ Liệu</span> <span>▼</span></div>
         <div id="acc-data" class="accordion-content">
             <button class="tool-btn" onclick="document.getElementById('excel-input').click()" style="justify-content: center; background: #fef08a; color: #b45309; border-color: #f59e0b;">
                 📊 Nhập từ Excel / CSV
@@ -188,13 +306,20 @@
             <input type="file" id="excel-input" style="display:none" accept=".xlsx, .xls, .csv" onchange="importFromExcel(event)">
             
             <button class="tool-btn" onclick="exportToExcel()" style="justify-content: center; background: #d9f99d; color: #0f766e; border-color: #84cc16; margin-top: 5px;">
-                📥 Xuất ra file Excel
+                📥 Xuất Excel (Trạm đang bật)
+            </button>
+
+            <button class="tool-btn" onclick="exportActiveToCAD()" style="justify-content: center; background: #e0e7ff; color: #4338ca; border-color: #6366f1; margin-top: 5px;">
+                📐 Xuất CAD .dxf (Trạm đang bật)
             </button>
         </div>
 
         <div class="accordion-toggle" onclick="toggleAcc('acc-filter')"><span>☰ Lọc hiển thị theo Trạm</span> <span>▼</span></div>
         <div id="acc-filter" class="accordion-content">
-            <div style="display:flex; gap:5px; margin-bottom:10px; margin-top:5px; padding-right: 5px;">
+            <div style="padding-right: 5px; margin-top: 5px;">
+                <input type="text" id="station-search" class="station-search-input" placeholder="🔍 Gõ tên trạm để tìm nhanh..." oninput="filterStationList()">
+            </div>
+            <div style="display:flex; gap:5px; margin-bottom:10px; padding-right: 5px;">
                 <button onclick="toggleAllStations(true)" style="flex:1; padding:6px; background:#e0f2fe; border:1px solid #0284c7; border-radius:4px; cursor:pointer; font-weight:bold; color:#0369a1; transition:0.2s;">Bật tất cả</button>
                 <button onclick="toggleAllStations(false)" style="flex:1; padding:6px; background:#fef2f2; border:1px solid #ef4444; border-radius:4px; cursor:pointer; font-weight:bold; color:#b91c1c; transition:0.2s;">Tắt tất cả</button>
             </div>
@@ -390,11 +515,17 @@
     window.movingLayerId = null; 
     window.editingLayerId = null;
 
+    // ==========================================
+    // KHOANH VÙNG ĐA NĂNG (ĐỔI TRẠM & XUẤT CAD)
+    // ==========================================
+    let currentPolygonAction = 'change_station';
+
     var polygonDrawer = new L.Draw.Polygon(map, {
         shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
     });
 
-    function startPolygonSelect(btnElement) {
+    function startPolygonSelect(btnElement, action = 'change_station') {
+        currentPolygonAction = action;
         cancelDrawing(); 
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); 
         if(btnElement) btnElement.classList.add('active');
@@ -402,7 +533,13 @@
         polygonDrawer.enable();
         var hint = document.getElementById('draw-hint');
         hint.style.display = 'block';
-        hint.innerHTML = "🖱️ <b>Khoanh vùng sửa Trạm:</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+        if (action === 'export_cad') {
+            polygonDrawer.setOptions({ shapeOptions: { color: '#16a34a', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 } });
+            hint.innerHTML = "🖱️ <b>Khoanh vùng Xuất CAD (.dxf):</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+        } else {
+            polygonDrawer.setOptions({ shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 } });
+            hint.innerHTML = "🖱️ <b>Khoanh vùng sửa Trạm:</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+        }
     }
 
     function isPointInsidePolygon(latlng, polyLayer) {
@@ -416,6 +553,55 @@
             if (intersect) inside = !inside;
         }
         return inside;
+    }
+
+    // HÀM TẠO VÀ TẢI FILE DXF (AUTOCAD)
+    function downloadFile(data, filename, type) {
+        var file = new Blob([data], {type: type});
+        var a = document.createElement("a"), url = URL.createObjectURL(file);
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 0); 
+    }
+
+    function exportToDXF(layers) {
+        let dxf = "0\nSECTION\n2\nENTITIES\n";
+        layers.forEach(layer => {
+            if (layer instanceof L.Marker) {
+                let lng = layer.getLatLng().lng;
+                let lat = layer.getLatLng().lat;
+                let name = (layer.options.metadata && layer.options.metadata.name) ? layer.options.metadata.name : "";
+                let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram : "";
+                let label = name + (tram ? ` (${tram})` : "");
+                
+                dxf += "0\nPOINT\n8\nDiem_Cot\n10\n" + lng + "\n20\n" + lat + "\n";
+                if (label.trim() !== "") {
+                    dxf += "0\nTEXT\n8\nTen_Cot\n10\n" + lng + "\n20\n" + (lat + 0.00004) + "\n40\n0.00008\n1\n" + label + "\n";
+                }
+            } else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                let latlngs = layer.getLatLngs();
+                if (Array.isArray(latlngs[0])) latlngs = latlngs[0]; 
+                
+                dxf += "0\nPOLYLINE\n8\nDuong_Day\n66\n1\n";
+                latlngs.forEach(ll => {
+                    dxf += "0\nVERTEX\n8\nDuong_Day\n10\n" + ll.lng + "\n20\n" + ll.lat + "\n";
+                });
+                dxf += "0\nSEQEND\n8\nDuong_Day\n";
+            }
+        });
+        dxf += "0\nENDSEC\n0\nEOF\n";
+        downloadFile(dxf, "Ban_Ve_Luoi_Dien_CAD.dxf", "text/plain");
+    }
+
+    function exportActiveToCAD() {
+        let activeLayers = drawnItems.getLayers();
+        if (activeLayers.length === 0) {
+            alert("Không có dữ liệu nào đang hiển thị để xuất CAD! Hãy bật ít nhất 1 Trạm ở phần Lọc.");
+            return;
+        }
+        if (confirm(`Xuất ${activeLayers.length} thiết bị/đường dây của các Trạm đang bật ra file AutoCAD (.dxf)?`)) {
+            exportToDXF(activeLayers);
+        }
     }
 
     map.on('draw:created', function (e) {
@@ -439,25 +625,31 @@
             });
 
             if (selectedLayers.length === 0) {
-                alert("Không tìm thấy thiết bị nào trong vùng vừa khoanh!");
+                alert("Không tìm thấy thiết bị nào đang hiển thị trong vùng vừa khoanh!");
                 map.removeLayer(polyLayer);
                 document.getElementById('draw-hint').style.display = 'none';
                 document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
                 return;
             }
 
-            let newTram = prompt(`Đã chọn thành công ${selectedLayers.length} thiết bị/đường dây trong vùng.\n\nHãy nhập tên "Thuộc Trạm" mới cho tất cả thiết bị này:`, "");
-            
-            if (newTram !== null) { 
-                let newName = newTram.trim();
-                selectedLayers.forEach(layer => {
-                    if (!layer.options.metadata) layer.options.metadata = {};
-                    layer.options.metadata.tram = newName;
-                    updatePopupContent(layer);
-                });
+            if (currentPolygonAction === 'export_cad') {
+                if (confirm(`Đã chọn ${selectedLayers.length} đối tượng trong vùng khoanh.\n\nBạn có muốn tải file AutoCAD (.dxf) về máy không?`)) {
+                    exportToDXF(selectedLayers);
+                }
+            } else {
+                let newTram = prompt(`Đã chọn thành công ${selectedLayers.length} thiết bị/đường dây trong vùng.\n\nHãy nhập tên "Thuộc Trạm" mới cho tất cả thiết bị này:`, "");
                 
-                updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); 
-                autoSaveToCloud(true, `Đã cập nhật hàng loạt Trạm "${newName}" cho ${selectedLayers.length} thiết bị!`);
+                if (newTram !== null) { 
+                    let newName = newTram.trim();
+                    selectedLayers.forEach(layer => {
+                        if (!layer.options.metadata) layer.options.metadata = {};
+                        layer.options.metadata.tram = newName;
+                        updatePopupContent(layer);
+                    });
+                    
+                    updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); 
+                    autoSaveToCloud(true, `Đã cập nhật hàng loạt Trạm "${newName}" cho ${selectedLayers.length} thiết bị!`);
+                }
             }
 
             map.removeLayer(polyLayer);
@@ -465,6 +657,204 @@
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         }
     });
+
+    // ==========================================
+    // LOGIC: TÍNH TỔN THẤT & SỤT ÁP HẠ THẾ
+    // ==========================================
+    function openLossModal() {
+        let select = document.getElementById('loss-station-select');
+        select.innerHTML = '<option value="">-- Nhập thông số thủ công --</option>';
+
+        let stations = new Set();
+        const collect = l => {
+            let t = (l.options.metadata && l.options.metadata.tram) ? l.options.metadata.tram.trim() : '';
+            if (t !== '') stations.add(t);
+        };
+        drawnItems.eachLayer(collect);
+        hiddenItems.eachLayer(collect);
+
+        Array.from(stations).sort().forEach(st => {
+            let opt = document.createElement('option');
+            opt.value = st;
+            opt.textContent = "Trạm: " + st;
+            select.appendChild(opt);
+        });
+
+        document.getElementById('loss-modal').classList.add('show');
+    }
+
+    function closeLossModal() {
+        document.getElementById('loss-modal').classList.remove('show');
+    }
+
+    function onSelectStationForLoss() {
+        let st = document.getElementById('loss-station-select').value;
+        let infoDiv = document.getElementById('loss-station-info');
+        if (!st) {
+            infoDiv.style.display = 'none';
+            return;
+        }
+
+        let totalWireLength = 0;
+        let poleCount = 0;
+
+        const scanLayer = layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === st) {
+                if (layer instanceof L.Marker) {
+                    poleCount++;
+                } else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                    let len = (layer.options.customData && layer.options.customData.length) ? layer.options.customData.length : 0;
+                    if (!len && layer.getLatLngs) {
+                        let pts = layer.getLatLngs();
+                        if (pts.length > 0 && !Array.isArray(pts[0])) {
+                            for (let i = 0; i < pts.length - 1; i++) len += map.distance(pts[i], pts[i+1]);
+                        }
+                    }
+                    totalWireLength += len;
+                }
+            }
+        };
+
+        drawnItems.eachLayer(scanLayer);
+        hiddenItems.eachLayer(scanLayer);
+
+        infoDiv.style.display = 'block';
+        if (totalWireLength > 0) {
+            document.getElementById('loss-length').value = Math.round(totalWireLength);
+            infoDiv.innerHTML = `✅ Đã tìm thấy <b>${poleCount} cột</b> và tổng chiều dài dây đã vẽ là <b>${Math.round(totalWireLength)} m</b>.`;
+        } else if (poleCount > 0) {
+            let estLength = poleCount * 38; // Ước tính trung bình 38m/cột nếu chưa vẽ dây
+            document.getElementById('loss-length').value = estLength;
+            infoDiv.innerHTML = `ℹ️ Trạm có <b>${poleCount} cột</b> (chưa vẽ đường dây). Tạm ước tính chiều dài ~38m/cột = <b>${estLength} m</b> (Bạn có thể sửa lại số mét).`;
+        } else {
+            infoDiv.innerHTML = `⚠️ Không tìm thấy cột hoặc dây nào của trạm này.`;
+        }
+    }
+
+    function toggleLoadInputType() {
+        let type = document.getElementById('loss-load-type').value;
+        let label = document.getElementById('loss-load-label');
+        let hoursGroup = document.getElementById('loss-hours-group');
+        let valInput = document.getElementById('loss-load-val');
+
+        if (type === 'kwh') {
+            label.textContent = '🔌 Sản lượng tiêu thụ (kWh/tháng):';
+            valInput.value = 2700;
+            hoursGroup.style.display = 'block';
+        } else if (type === 'amp') {
+            label.textContent = '🔌 Dòng điện tải đo được (Ampe):';
+            valInput.value = 25;
+            hoursGroup.style.display = 'block';
+        } else {
+            label.textContent = '🔌 Công suất phụ tải (kW):';
+            valInput.value = 15;
+            hoursGroup.style.display = 'block';
+        }
+    }
+
+    function calculatePowerLoss() {
+        let L_m = parseFloat(document.getElementById('loss-length').value) || 0;
+        let L_km = L_m / 1000;
+        let R0 = parseFloat(document.getElementById('loss-cable').value);
+        let U = parseFloat(document.getElementById('loss-voltage').value);
+        let loadType = document.getElementById('loss-load-type').value;
+        let loadVal = parseFloat(document.getElementById('loss-load-val').value) || 0;
+        let hours = parseFloat(document.getElementById('loss-hours').value) || 8;
+        let distFactor = parseFloat(document.getElementById('loss-load-dist').value) || 1;
+        let cosphi = parseFloat(document.getElementById('loss-cosphi').value) || 0.85;
+
+        if (L_m <= 0 || loadVal <= 0) {
+            alert("Vui lòng nhập chiều dài đường dây và thông số phụ tải lớn hơn 0!");
+            return;
+        }
+
+        let isThreePhase = (U >= 380);
+        let P_kW = 0;
+        let I_amp = 0;
+        let monthly_kWh = 0;
+
+        if (loadType === 'kwh') {
+            monthly_kWh = loadVal;
+            P_kW = monthly_kWh / (30 * hours);
+            if (isThreePhase) {
+                I_amp = (P_kW * 1000) / (Math.sqrt(3) * U * cosphi);
+            } else {
+                I_amp = (P_kW * 1000) / (U * cosphi);
+            }
+        } else if (loadType === 'amp') {
+            I_amp = loadVal;
+            if (isThreePhase) {
+                P_kW = (Math.sqrt(3) * U * I_amp * cosphi) / 1000;
+            } else {
+                P_kW = (U * I_amp * cosphi) / 1000;
+            }
+            monthly_kWh = P_kW * hours * 30;
+        } else {
+            P_kW = loadVal;
+            if (isThreePhase) {
+                I_amp = (P_kW * 1000) / (Math.sqrt(3) * U * cosphi);
+            } else {
+                I_amp = (P_kW * 1000) / (U * cosphi);
+            }
+            monthly_kWh = P_kW * hours * 30;
+        }
+
+        let R_total = R0 * L_km;
+        let X0 = 0.08; // Cảm kháng trung bình cáp vặn xoắn hạ thế (Ω/km)
+        let sinphi = Math.sqrt(1 - cosphi * cosphi);
+
+        // Tính độ sụt áp Delta U (V) và (%)
+        let deltaU_V = 0;
+        if (isThreePhase) {
+            deltaU_V = Math.sqrt(3) * I_amp * L_km * (R0 * cosphi + X0 * sinphi) * distFactor;
+        } else {
+            deltaU_V = 2 * I_amp * L_km * (R0 * cosphi + X0 * sinphi) * distFactor;
+        }
+
+        let deltaU_percent = (deltaU_V / U) * 100;
+        let U_end = Math.max(0, U - deltaU_V);
+        let U_phase_end = isThreePhase ? (U_end / Math.sqrt(3)) : U_end;
+
+        // Tính tổn thất công suất Delta P (kW) & Điện năng thất thoát tháng Delta A (kWh)
+        let deltaP_kW = 0;
+        if (isThreePhase) {
+            deltaP_kW = (3 * Math.pow(I_amp, 2) * R_total * distFactor) / 1000;
+        } else {
+            deltaP_kW = (2 * Math.pow(I_amp, 2) * R_total * distFactor) / 1000;
+        }
+
+        let deltaA_month = deltaP_kW * hours * 30;
+        let lossPercent = (deltaA_month / (monthly_kWh + deltaA_month)) * 100;
+
+        // Đánh giá trạng thái kỹ thuật
+        let statusBadge = '';
+        let advice = '';
+        if (deltaU_percent <= 5 && lossPercent <= 5) {
+            statusBadge = `<span class="badge-status badge-good">✅ ĐẠT CHUẨN VẬN HÀNH (< 5%)</span>`;
+            advice = `Lưới điện vận hành tốt, chất lượng điện áp cuối nguồn đảm bảo.`;
+        } else if (deltaU_percent <= 10) {
+            statusBadge = `<span class="badge-status badge-warn">⚠️ CẢNH BÁO SỤT ÁP & TỔN THẤT CAO</span>`;
+            advice = `Khuyến nghị: Kiểm tra cân bằng pha, nâng tiết diện cáp trục chính (VD lên 4x70 hoặc 4x95).`;
+        } else {
+            statusBadge = `<span class="badge-status badge-danger">🚨 QUÁ GIỚI HẠN KỸ THUẬT NGHIÊM TRỌNG</span>`;
+            advice = `Khuyến nghị: Bán kính cấp điện quá xa so với tải. Cần nâng tiết diện dây lớn, kéo lộ xuất tuyến riêng hoặc cấy thêm TBA san tải.`;
+        }
+
+        let resBox = document.getElementById('loss-result-box');
+        resBox.style.display = 'block';
+        resBox.innerHTML = `
+            <div style="margin-bottom:6px;">${statusBadge}</div>
+            • <b>Tổng điện trở tuyến dây (R):</b> ${R_total.toFixed(3)} Ω <i>(Chiều dài ${L_m}m)</i><br>
+            • <b>Dòng điện tính toán (I):</b> <span style="color:#0284c7; font-weight:bold;">${I_amp.toFixed(1)} A</span> <i>(Công suất ~${P_kW.toFixed(1)} kW)</i><br>
+            • <b>Độ sụt áp (ΔU):</b> <span style="color:#e11d48; font-weight:bold;">${deltaU_V.toFixed(1)} V (${deltaU_percent.toFixed(1)}%)</span><br>
+            • <b>Điện áp còn lại ở cuối nguồn:</b> <b>${U_end.toFixed(0)} V</b> ${isThreePhase ? `(Điện áp pha: ~<b>${U_phase_end.toFixed(0)}V</b>)` : ''}<br>
+            • <b>Tổn thất công suất (ΔP):</b> ${deltaP_kW.toFixed(2)} kW<br>
+            • <b>Điện năng thất thoát/tháng (ΔA):</b> <span style="color:#b91c1c; font-weight:bold;">${deltaA_month.toFixed(0)} kWh/tháng</span> (~${lossPercent.toFixed(1)}%)<br>
+            <hr style="border:0; border-top:1px dashed #cbd5e1; margin:6px 0;">
+            <span style="font-size:12.5px; color:#475569;">💡 <b>Đánh giá:</b> ${advice}</span>
+        `;
+    }
 
     function clearMeasure() {
         if(measureLine) map.removeLayer(measureLine);
@@ -544,6 +934,7 @@
     document.addEventListener('keydown', function(event) { 
         if (event.key === "Escape") { 
             closeGallery(); 
+            closeLossModal();
             cancelDrawing(); 
         } 
         if (event.key === "Enter") {
@@ -904,7 +1295,7 @@
     window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
 
     // ==========================================
-    // LOGIC: LỌC TRẠM THÔNG MINH BẬT / TẮT
+    // LOGIC: LỌC TRẠM THÔNG MINH & TÌM KIẾM TRẠM
     // ==========================================
     function getCheckedStations() {
         let checkboxes = document.querySelectorAll('.station-cb');
@@ -913,9 +1304,24 @@
         return checked;
     }
 
+    function filterStationList() {
+        let kw = (document.getElementById('station-search').value || '').toLowerCase().trim();
+        let labels = document.querySelectorAll('#station-filter-list .station-label');
+        labels.forEach(lb => {
+            let text = lb.textContent.toLowerCase();
+            lb.style.display = text.includes(kw) ? 'flex' : 'none';
+        });
+    }
+
     function toggleAllStations(isCheck) {
-        let checkboxes = document.querySelectorAll('.station-cb');
-        checkboxes.forEach(cb => cb.checked = isCheck);
+        // Chỉ bật/tắt các trạm đang hiển thị trong kết quả tìm kiếm
+        let labels = document.querySelectorAll('#station-filter-list .station-label');
+        labels.forEach(lb => {
+            if (lb.style.display !== 'none') {
+                let cb = lb.querySelector('.station-cb');
+                if (cb) cb.checked = isCheck;
+            }
+        });
         applyStationFilter();
     }
 
@@ -955,31 +1361,40 @@
             listContainer.appendChild(label);
         });
 
+        filterStationList(); // Giữ bộ lọc chữ nếu người dùng đang gõ tìm kiếm
         applyStationFilter(); 
     }
 
     function applyStationFilter() {
         let checkedStations = getCheckedStations();
         
+        let toHide = [];
         drawnItems.eachLayer(layer => {
             let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
             if (tram === '') tram = 'Chưa phân trạm';
 
             if (!checkedStations.includes(tram)) {
-                drawnItems.removeLayer(layer); 
-                hiddenItems.addLayer(layer);   
-                if (layer.isPopupOpen()) layer.closePopup();
+                toHide.push(layer);
             }
         });
+        toHide.forEach(layer => {
+            if (layer.isPopupOpen()) layer.closePopup();
+            drawnItems.removeLayer(layer);
+            hiddenItems.addLayer(layer);
+        });
 
+        let toShow = [];
         hiddenItems.eachLayer(layer => {
             let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
             if (tram === '') tram = 'Chưa phân trạm';
 
             if (checkedStations.includes(tram)) {
-                hiddenItems.removeLayer(layer);
-                drawnItems.addLayer(layer); 
+                toShow.push(layer);
             }
+        });
+        toShow.forEach(layer => {
+            hiddenItems.removeLayer(layer);
+            drawnItems.addLayer(layer);
         });
     }
 
@@ -987,7 +1402,7 @@
     map.on('zoomend', applyStationFilter);
 
     // ==========================================
-    // KHÔI PHỤC LẠI HÀM LƯU GỐC AN TOÀN CHO FIREBASE
+    // KẾT NỐI FIREBASE REALTIME DATABASE
     // ==========================================
     const FIREBASE_URL = 'https://luoi-dien-van-ban-default-rtdb.asia-southeast1.firebasedatabase.app/dulieu.json';
 
