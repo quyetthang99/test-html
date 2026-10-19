@@ -1497,7 +1497,60 @@
         });
     }
 
-    window.onload = autoLoadFromCloud;
+    // ==========================================
+    // TẢI THÊM DATABASE ĐZ 35kV VÀO BỘ LỌC
+    // ==========================================
+    function loadDz35kVFromCloud() {
+        // Lưu ý: Phải thêm .json vào cuối link URL của Firebase Realtime Database
+        const FIREBASE_35KV_URL = 'https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/vanban.json';
+        
+        fetch(FIREBASE_35KV_URL)
+        .then(response => response.json())
+        .then(res => {
+            if (!res || !res.features) return; 
+            
+            L.geoJSON(res, {
+                pointToLayer: function(feature, latlng) {
+                    let custom = feature.properties.customData || {}; 
+                    let type = custom.type || 'tba'; 
+                    let meta = feature.properties.metadata || {}; 
+                    return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
+                },
+                style: function(feature) {
+                    let custom = feature.properties.customData || {}; 
+                    // Mặc định màu vàng (#eab308) nếu dữ liệu không có màu
+                    let style = { weight: 4, color: custom.color || '#eab308' }; 
+                    if(custom.dash) style.dashArray = custom.dash; 
+                    return style;
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.options.metadata = feature.properties.metadata || {}; 
+                    
+                    // CỐ ĐỊNH TÊN TRẠM LÀ "ĐZ 35kV" ĐỂ ĐƯA VÀO BỘ LỌC
+                    layer.options.metadata.tram = 'ĐZ 35kV'; 
+                    
+                    layer.options.customData = feature.properties.customData || { type: 'dz35', title: 'Đường dây 35kV' };
+                    if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
+                    
+                    // Thêm vào layer vẽ chính để tương tác và lọc được
+                    drawnItems.addLayer(layer); 
+                    updatePopupContent(layer); 
+                }
+            });
+            
+            // Cập nhật lại giao diện bộ lọc để xuất hiện mục checkbox "ĐZ 35kV"
+            updateStationFilterUI();
+        })
+        .catch(err => {
+            console.error("Lỗi tải dữ liệu ĐZ 35kV:", err);
+        });
+    }
+
+    // Tự động tải cả 2 Database khi mở trang
+    window.onload = function() {
+        autoLoadFromCloud();   // Tải database mặc định
+        loadDz35kVFromCloud(); // Tải thêm database 35kV
+    };
     // ==========================================
     // VẼ LỚP NỀN KHOANH VÙNG (KHÔNG BỊ ẢNH HƯỞNG BỞI LỌC TRẠM)
     // ==========================================
