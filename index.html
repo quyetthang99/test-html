@@ -3,432 +3,1671 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thi trắc nghiệm Văn hóa Doanh nghiệp - Quyết Thắng - Đội QLKV Văn Bàn</title>
+    <title>GIS Hạ Thế Văn Bàn</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
-        :root { --primary: #0284c7; --bg: #f0f9ff; --correct: #16a34a; --wrong: #ef4444; --warning: #f59e0b; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .app-container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 800px; position: relative;}
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; height: 100vh; overflow: hidden; background: #f8fafc; display: block; }
         
-        h1, h2, h3 { text-align: center; color: var(--primary); }
-        .author-text { text-align: center; color: #64748b; font-style: italic; font-weight: bold; font-size: 1.1rem; margin-top: 5px; margin-bottom: 25px; }
-        .hidden { display: none !important; }
+        #map-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; z-index: 1; }
+        .drawing-mode-active { cursor: crosshair !important; }
+
+        #sidebar { position: absolute; top: 15px; left: 15px; width: 330px; max-height: calc(100vh - 30px); background: #ffffff; border-radius: 10px; display: flex; flex-direction: column; z-index: 1001; box-shadow: 0 6px 20px rgba(0,0,0,0.25); transition: 0.3s; }
+        #sidebar.collapsed .tool-section, #sidebar.collapsed .footer { display: none; }
+        #sidebar.collapsed .header { border-radius: 10px; } 
+
+        .header { padding: 15px; background: #0284c7; color: white; font-weight: bold; font-size: 1.1rem; border-radius: 10px 10px 0 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: 0.3s;}
+        .header:hover { background: #0369a1; }
+        #sidebar-icon { transition: transform 0.3s; font-size: 1.2rem;}
+        #sidebar:not(.collapsed) #sidebar-icon { transform: rotate(-180deg); }
+
+        .tool-section { padding: 10px 15px; overflow-y: auto; flex-grow: 1; }
         
-        /* Dropdown CSS */
-        .dropdown-container { margin: 20px 0; text-align: center; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
-        .dropdown-container label { font-weight: bold; color: #1e293b; display: block; margin-bottom: 10px; font-size: 1.1rem; }
-        #quiz-selector { width: 100%; max-width: 400px; padding: 12px; font-size: 1rem; border: 2px solid var(--primary); border-radius: 8px; cursor: pointer; outline: none; background: white; }
+        .accordion-toggle { display: flex; align-items: center; justify-content: space-between; background: #f1f5f9; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; color: #0f172a; font-size: 0.95rem; margin-top: 10px; margin-bottom: 5px; border: 1px solid #cbd5e1; transition: 0.2s; }
+        .accordion-toggle:hover { background: #e2e8f0; }
+        .accordion-content { display: none; padding: 5px 0 10px 10px; border-left: 2px solid #e2e8f0; margin-left: 5px; }
+        .accordion-content.show { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tool-btn { width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; font-size: 0.95rem; color: #1e293b; font-weight: 500;}
+        .tool-btn:hover { background: #f0f9ff; border-color: #0284c7; }
+        .tool-btn.active { background: #e0f2fe; border-color: #0284c7; font-weight: bold; color: #0284c7; box-shadow: inset 3px 0 0 #0284c7;}
+
+        .icon-tba { width: 20px; height: 20px; border: 2px solid #1e293b; background: white; display: flex; align-items: center; justify-content: center; }
+        .icon-tba::after { content: ''; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #fbbf24; margin-top: -2px;}
+        .icon-ctt { width: 16px; height: 16px; background: #fbbf24; border-radius: 50%; border: 2px solid #1e293b; }
+        .icon-cht { width: 16px; height: 16px; background: #22c55e; border: 2px solid #1e293b; }
+        .line-preview { width: 25px; height: 4px; }
+
+        .leaflet-div-icon { background: transparent; border: none; }
+        .custom-labeled-icon { overflow: visible !important; } 
+        .map-icon-tba { width: 24px; height: 24px; border: 2px solid #1e293b; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .map-icon-tba::after { content: ''; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid #fbbf24; margin-top: -2px;}
+        .map-icon-ctt { width: 18px; height: 18px; background: #fbbf24; border-radius: 50%; border: 2px solid #1e293b; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);}
+        .map-icon-cht { width: 18px; height: 18px; background: #22c55e; border: 2px solid #1e293b; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);}
+        .marker-label { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: bold; color: #0f172a; text-shadow: 1.5px 1.5px 0 #fff, -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff; pointer-events: none; z-index: 1000;}
+
+        .footer { padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;}
+        .btn-system { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; font-size: 0.9rem; transition: 0.2s;}
+        .btn-system:hover { filter: brightness(1.1); }
+
+        .search-box { position: absolute; top: 15px; left: 360px; z-index: 1000; background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; gap: 5px; border-left: 4px solid #0284c7;}
+        .search-box input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; width: 220px; outline: none; font-family: inherit; }
+        .search-box button { padding: 8px 15px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .search-box button:hover { background: #0369a1; }
         
-        /* Menu Screen */
-        .menu-screen { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
-        .menu-btn { padding: 15px; font-size: 1.2rem; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; }
-        .btn-study { background: #0ea5e9; }
-        .btn-quiz { background: #f59e0b; }
-        .btn-full { background: #8b5cf6; } 
-        .btn-search { background: #14b8a6; } 
-        .menu-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .leaflet-control-layers { font-family: 'Segoe UI', sans-serif; border-radius: 8px; padding: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important; }
+        #draw-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(30, 41, 59, 0.9); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.95rem; display: none; pointer-events: none; text-align: center; line-height: 1.5; box-shadow: 0 4px 10px rgba(0,0,0,0.3);}
+        .hint-esc { color: #fca5a5; font-weight: bold; }
 
-        /* General Buttons */
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; background: var(--primary); transition: 0.3s; }
-        .btn:disabled { background: #cbd5e1; cursor: not-allowed; opacity: 0.7; }
-        .btn-back { background: #64748b; margin-bottom: 20px; }
-
-        /* Lists (Study, Review & Search) */
-        .scroll-list { max-height: 65vh; overflow-y: auto; padding-right: 10px; text-align: left; }
-        .list-item { padding: 15px; border-bottom: 1px solid #e2e8f0; margin-bottom: 10px; background: #f8fafc; border-radius: 8px; }
-        .q-text { font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; color: #1e293b; }
-        .ans-box { padding: 8px 12px; border-radius: 6px; margin-top: 5px; font-weight: 500; }
-        .ans-correct { background: #dcfce3; color: var(--correct); border-left: 4px solid var(--correct); }
-        .ans-wrong { background: #fee2e2; color: var(--wrong); border-left: 4px solid var(--wrong); }
-        .ans-missing { background: #fef3c7; color: var(--warning); border-left: 4px solid var(--warning); }
-        .ans-neutral { background: #f1f5f9; color: #475569; border-left: 4px solid #cbd5e1; font-weight: normal; }
-
-        /* Search Input */
-        #search-input { width: 100%; padding: 15px; font-size: 1.1rem; border: 2px solid var(--primary); border-radius: 8px; margin-bottom: 20px; outline: none; box-sizing: border-box; }
-        #search-input:focus { border-color: #14b8a6; box-shadow: 0 0 8px rgba(20, 184, 166, 0.3); }
-
-        /* Quiz Mode */
-        .progress-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .progress { font-size: 1.1rem; color: #64748b; font-weight: bold; }
+        .popup-form { width: 260px; }
+        .popup-form h3 { margin: 0 0 10px 0; color: #0284c7; font-size: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; text-transform: uppercase;}
+        .popup-form input { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-family: inherit;}
+        .popup-form button.btn-save { width: 100%; padding: 10px; background: #16a34a; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px;}
         
-        /* ĐỒNG HỒ ĐẾM NGƯỢC */
-        .timer-badge { background: #fee2e2; color: #dc2626; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem; border: 2px solid #fca5a5; display: flex; align-items: center; gap: 5px;}
-        .timer-warning { animation: blink 1s infinite; background: #ef4444; color: white;}
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-        #question-box { margin-bottom: 20px; font-weight: 600; font-size: 1.2rem; color: #1e293b; line-height: 1.5; min-height: 60px; }
-        .option { display: block; padding: 15px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .option:hover { border-color: var(--primary); background: #f0f7ff; }
-        .option.selected { border-color: var(--primary); background: var(--primary); color: white; }
+        .popup-img { width: 100%; border-radius: 8px; margin-top: 10px; max-height: 150px; object-fit: cover; border: 1px solid #e2e8f0; cursor: zoom-in; transition: 0.3s;}
+        .popup-img:hover { filter: brightness(0.9); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .img-count-badge { text-align: center; font-size: 11px; color: #64748b; margin-top: 5px; font-weight: bold; }
         
-        /* Navigation Buttons */
-        .nav-btn-group { display: flex; gap: 10px; margin-top: 20px; }
-        .nav-btn { flex: 1; padding: 15px; font-size: 1.1rem; }
-        .btn-prev { background: #64748b; }
-        .btn-submit { width: 100%; padding: 15px; font-size: 1.2rem; background: var(--correct); margin-top: 15px; }
-        .btn-submit:hover { background: #15803d; }
+        .action-btns { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+        .action-btns button { padding: 8px; font-size: 0.85rem; flex: 1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; min-width: 30%;}
+        .btn-move { background: #8b5cf6; } .btn-move:hover { background: #7c3aed; }
+        .btn-edit { background: #f59e0b; } .btn-edit:hover { background: #d97706; }
+        .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
+        .btn-continue { background: #10b981; } .btn-continue:hover { background: #059669; }
+        .btn-edit-shape { background: #0284c7; } .btn-edit-shape:hover { background: #0369a1; }
+        .btn-folder { display: block; background: #3b82f6; color: white; padding: 10px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px; font-size: 0.9rem; transition: 0.2s;}
+        .btn-folder:hover { background: #2563eb; }
 
-        /* Result Screen */
-        .result-screen { text-align: center; }
-        .score { font-size: 4rem; font-weight: bold; color: var(--correct); margin: 10px 0; }
+        .leaflet-control-custom-measure a { font-size: 16px; line-height: 30px; text-align: center; text-decoration: none; color: #333; display: block; background: white;}
+        .leaflet-control-custom-measure a:hover { background-color: #f4f4f4; }
+        .measure-tooltip { background: #0284c7; color: white; border: none; font-weight: bold; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 13px; }
+        .measure-tooltip::before { border-right-color: #0284c7; border-left-color: #0284c7; }
+
+        .leaflet-control-my-location a { font-size: 16px; line-height: 30px; text-align: center; text-decoration: none; color: #333; display: block; background: white;}
+        .leaflet-control-my-location a:hover { background-color: #f4f4f4; }
+
+        #gallery-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        #gallery-modal.show { display: flex; }
+        .close-gallery { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; transition: 0.2s; z-index: 10000; }
+        .close-gallery:hover { color: #ef4444; transform: scale(1.1); }
+        #main-gallery-img { max-width: 90vw; max-height: 70vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain; background: black; }
+        #thumb-strip { display: flex; gap: 12px; margin-top: 25px; max-width: 90vw; overflow-x: auto; padding: 10px 5px; }
+        .thumb-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; opacity: 0.5; transition: 0.3s; border: 3px solid transparent; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3);}
+        .thumb-img:hover { opacity: 0.8; transform: translateY(-3px); }
+        .thumb-img.active { opacity: 1; border-color: #38bdf8; transform: scale(1.05); }
+        #thumb-strip::-webkit-scrollbar { height: 8px; }
+        #thumb-strip::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
+        
+        .leaflet-draw-toolbar a { background-color: #f8fafc !important; border: 1px solid #94a3b8 !important;}
+        .highlighted-line { filter: drop-shadow(0 0 4px rgba(0,0,0,0.6)); cursor: pointer; }
+
+        .station-label { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; background:#f8fafc; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; transition: 0.2s; color: #0f172a; font-weight: 500;}
+        .station-label:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .station-label input { width: 16px; height: 16px; accent-color: #0284c7; cursor:pointer; margin:0;}
+
+        .station-search-input { width: 100%; padding: 8px 10px; margin-bottom: 8px; border: 1px solid #94a3b8; border-radius: 6px; box-sizing: border-box; font-size: 13px; outline: none; font-family: inherit; background: #fff;}
+        .station-search-input:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2); }
+
+        #loss-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 9998; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #loss-modal.show { display: flex; }
+        .loss-card { background: white; width: 460px; max-width: 94vw; max-height: 92vh; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.35); display: flex; flex-direction: column; overflow: hidden; animation: fadeIn 0.25s ease; }
+        .loss-header { background: #0284c7; color: white; padding: 14px 18px; font-weight: bold; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: center; }
+        .loss-header span.close-btn { cursor: pointer; font-size: 24px; line-height: 1; transition: 0.2s; }
+        .loss-header span.close-btn:hover { color: #fca5a5; }
+        .loss-body { padding: 16px 18px; overflow-y: auto; font-size: 13.5px; color: #1e293b; }
+        .loss-group { margin-bottom: 11px; }
+        .loss-group label { display: block; font-weight: 600; margin-bottom: 4px; color: #334155; font-size: 13px; }
+        .loss-group input, .loss-group select { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: inherit; font-size: 13.5px; outline: none; }
+        .loss-group input:focus, .loss-group select:focus { border-color: #0284c7; }
+        .loss-row { display: flex; gap: 10px; }
+        .loss-row .loss-group { flex: 1; }
+        .loss-result { background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0284c7; border-radius: 6px; padding: 12px; margin-top: 12px; display: none; line-height: 1.6; }
+        .badge-status { display: inline-block; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .badge-good { background: #dcfce7; color: #15803d; }
+        .badge-warn { background: #fef3c7; color: #b45309; }
+        .badge-danger { background: #fee2e2; color: #b91c1c; }
+
+        .marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
+        .marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
+        .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
+        .marker-cluster-medium div { background-color: rgba(240, 194, 12, 0.6); }
+        .marker-cluster-large { background-color: rgba(253, 156, 115, 0.6); }
+        .marker-cluster-large div { background-color: rgba(241, 128, 23, 0.6); }
+        .marker-cluster { background-clip: padding-box; border-radius: 20px; }
+        .marker-cluster div { width: 30px; height: 30px; margin-left: 5px; margin-top: 5px; text-align: center; border-radius: 15px; font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif; font-weight: bold; color: #1e293b; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);}
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <div id="menu-ui">
-        <h1 style="margin-bottom: 5px;">Thi trắc nghiệm Văn hóa Doanh nghiệp</h1>
-        <p class="author-text">Design by Quyết Thắng - Đội QLKV Văn Bàn - 0976297555</p>
-        
-        <div class="dropdown-container">
-            <label for="quiz-selector">Chọn Bộ Đề Ôn Thi:</label>
-            <select id="quiz-selector">
-                <option value="">Đang tải danh sách đề...</option>
-            </select>
+<div id="gallery-modal">
+    <span class="close-gallery" onclick="closeGallery()">&times;</span>
+    <img id="main-gallery-img" src="" alt="Main Image">
+    <div id="thumb-strip"></div>
+</div>
+
+<!-- MODAL TÍNH TỔN THẤT & SỤT ÁP -->
+<div id="loss-modal">
+    <div class="loss-card">
+        <div class="loss-header">
+            <span>🧮 TÍNH TỔN THẤT & SỤT ÁP HẠ THẾ</span>
+            <span class="close-btn" onclick="closeLossModal()">&times;</span>
         </div>
-        
-        <div class="menu-screen">
-            <button class="menu-btn btn-study" onclick="startStudyMode()">📚 Chế độ Học Tập (Xem toàn bộ đề)</button>
-            <button class="menu-btn btn-quiz" onclick="startQuizMode(false)">🎯 Thi Thử Ngẫu Nhiên (50 câu - Có bấm giờ)</button>
-            <button class="menu-btn btn-full" onclick="startQuizMode(true)">🚀 Thi Thử Toàn Bộ (Không bấm giờ)</button>
-            <button class="menu-btn btn-search" onclick="startSearchMode()">🔍 Tìm Kiếm Câu Hỏi</button>
+        <div class="loss-body">
+            <div class="loss-group">
+                <label>🏢 Chọn Trạm Biến Áp trên bản đồ (Để tự động đo dây/cột):</label>
+                <select id="loss-station-select" onchange="onSelectStationForLoss()">
+                    <option value="">-- Nhập thông số thủ công --</option>
+                </select>
+                <div id="loss-station-info" style="font-size: 12px; color: #0284c7; margin-top: 4px; display: none;"></div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label>📏 Chiều dài trục (m):</label>
+                    <input type="number" id="loss-length" value="1400" placeholder="VD: 1400">
+                </div>
+                <div class="loss-group">
+                    <label>〰️ Loại cáp vặn xoắn / Dây:</label>
+                    <select id="loss-cable">
+                        <option value="0.92">ABC 4x35 (R₀ = 0.92 Ω/km)</option>
+                        <option value="0.64" selected>ABC 4x50 (R₀ = 0.64 Ω/km)</option>
+                        <option value="0.44">ABC 4x70 (R₀ = 0.44 Ω/km)</option>
+                        <option value="0.32">ABC 4x95 (R₀ = 0.32 Ω/km)</option>
+                        <option value="0.25">ABC 4x120 (R₀ = 0.25 Ω/km)</option>
+                        <option value="0.46">Dây trần AC-70 (R₀ = 0.46 Ω/km)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label>⚡ Điện áp đầu nguồn (V):</label>
+                    <select id="loss-voltage">
+                        <option value="380" selected>3 Pha (380V)</option>
+                        <option value="400">3 Pha đầu trạm cao (400V)</option>
+                        <option value="220">1 Pha (220V)</option>
+                    </select>
+                </div>
+                <div class="loss-group">
+                    <label>📊 Cách nhập phụ tải:</label>
+                    <select id="loss-load-type" onchange="toggleLoadInputType()">
+                        <option value="kwh" selected>Sản lượng tháng (kWh)</option>
+                        <option value="amp">Dòng điện đo được (Ampe)</option>
+                        <option value="kw">Công suất (kW)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label id="loss-load-label">🔌 Sản lượng tiêu thụ (kWh/tháng):</label>
+                    <input type="number" id="loss-load-val" value="2700" placeholder="VD: 2700">
+                </div>
+                <div class="loss-group" id="loss-hours-group">
+                    <label>⏱️ Giờ chạy TB/ngày (giờ):</label>
+                    <input type="number" id="loss-hours" value="8" min="1" max="24" placeholder="VD: 8">
+                </div>
+            </div>
+
+            <div class="loss-row">
+                <div class="loss-group">
+                    <label>🎯 Vị trí phụ tải:</label>
+                    <select id="loss-load-dist">
+                        <option value="1" selected>Tập trung ở cuối nguồn (Bất lợi nhất)</option>
+                        <option value="0.5">Phân bố đều dọc tuyến (Hệ số 0.5)</option>
+                        <option value="0.33">Tải sinh hoạt rải đều (Hệ số 1/3)</option>
+                    </select>
+                </div>
+                <div class="loss-group">
+                    <label>⚙️ Hệ số Cos φ:</label>
+                    <input type="number" id="loss-cosphi" value="0.85" step="0.05" min="0.5" max="1">
+                </div>
+            </div>
+
+            <button onclick="calculatePowerLoss()" style="width:100%; padding:11px; background:#0284c7; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; margin-top:4px; transition:0.2s;">
+                ⚡ PHÂN TÍCH SỤT ÁP & TỔN THẤT
+            </button>
+
+            <div id="loss-result-box" class="loss-result"></div>
         </div>
-    </div>
-
-    <div id="search-ui" class="hidden">
-        <button class="btn btn-back" onclick="goHome()">⬅ Quay lại Menu</button>
-        <h2 id="search-title">Tra Cứu Câu Hỏi</h2>
-        <input type="text" id="search-input" placeholder="Nhập từ khóa (VD: Giá trị cốt lõi, Tầm nhìn, Sứ mệnh)..." onkeyup="performSearch()">
-        <div id="search-results" class="scroll-list"></div>
-    </div>
-
-    <div id="study-ui" class="hidden">
-        <button class="btn btn-back" onclick="goHome()">⬅ Quay lại Menu</button>
-        <h2 id="study-title">Danh sách câu hỏi ôn tập</h2>
-        <div id="study-list" class="scroll-list"></div>
-    </div>
-
-    <div id="quiz-ui" class="hidden">
-        <div class="progress-container">
-            <button class="btn btn-back" style="margin-bottom: 0;" onclick="goHome()">⬅ Dừng thi</button>
-            
-            <!-- ĐỒNG HỒ ĐẾM NGƯỢC -->
-            <div id="timer-display" class="timer-badge hidden">⏳ <span id="time-left">50:00</span></div>
-            
-            <div class="progress" id="progress">Câu: 1/50</div>
-        </div>
-        
-        <div id="question-box">Đang tải câu hỏi...</div>
-        <div id="options-box"></div>
-        
-        <div class="nav-btn-group">
-            <button id="prev-btn" class="btn nav-btn btn-prev" onclick="prevQuestion()">⬅ Trước</button>
-            <button id="next-btn" class="btn nav-btn" onclick="nextQuestion()">Sau ➡</button>
-        </div>
-        <button id="submit-btn" class="btn btn-submit" onclick="submitQuiz(false)">Nộp bài & Xem kết quả</button>
-    </div>
-
-    <div id="result-ui" class="hidden result-screen">
-        <h2>Kết Quả Bài Thi</h2>
-        <div class="score" id="final-score">0</div>
-        <p id="feedback" style="font-size: 1.2rem; color: #475569; margin-bottom: 20px;"></p>
-        
-        <button class="btn btn-back" onclick="goHome()" style="padding: 12px 25px; font-size: 1.1rem; margin-bottom: 20px;">Về Trang Chủ</button>
-
-        <h3>Chi tiết bài làm của bạn:</h3>
-        <div id="review-list" class="scroll-list"></div>
     </div>
 </div>
 
-<script src="database.js"></script>
+<div id="map-container">
+    <div class="search-box">
+        <input type="text" id="coord-input" placeholder="VD: 22.4856, 104.1481">
+        <button onclick="gotoCoords()">📍 Tìm vị trí</button>
+    </div>
+    <div id="draw-hint">🖱️ Click để vẽ.</div>
+    <div id="map"></div>
+</div>
+
+<div id="sidebar" class="collapsed">
+    <div class="header" onclick="toggleSidebar()">
+        <div>
+            SƠ ĐỒ LƯỚI ĐIỆN HẠ THẾ<br>
+            <span style="font-size: 0.85em; color: #bae6fd;">ĐIỆN LỰC VĂN BÀN- by Quyết Thắng</span>
+        </div>
+        <div id="sidebar-icon">▼</div>
+    </div>
+    
+    <div class="tool-section">
+        <div class="accordion-toggle" onclick="toggleAcc('acc-tram')"><span>☰ Trạm & Cột Điện</span> <span>▼</span></div>
+        <div id="acc-tram" class="accordion-content show"> 
+            <button class="tool-btn" onclick="setMode(this, 'tba', 'Trạm biến áp')"><div class="icon-tba"></div> Trạm biến áp</button>
+            <button class="tool-btn" onclick="setMode(this, 'ctt', 'Cột trung thế')"><div class="icon-ctt"></div> Cột trung thế</button>
+            <button class="tool-btn" onclick="setMode(this, 'cht', 'Cột hạ thế')"><div class="icon-cht"></div> Cột hạ thế</button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-35')"><span>☰ Đường dây 35kV</span> <span>▼</span></div>
+        <div id="acc-35" class="accordion-content">
+            <button class="tool-btn" onclick="setMode(this, 'dz35', 'Đường dây 35kV', '#eab308')"><div class="line-preview" style="background:#eab308"></div> ĐZ 35kV Nổi (Vàng)</button>
+            <button class="tool-btn" onclick="setMode(this, 'cn35', 'Cáp ngầm 35kV', '#eab308', '10, 10')"><div class="line-preview" style="border-top:4px dashed #eab308"></div> Cáp ngầm 35kV</button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-04')"><span>☰ Đường dây 0.4kV</span> <span>▼</span></div>
+        <div id="acc-04" class="accordion-content">
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#ef4444')"><div class="line-preview" style="background:#ef4444"></div> Lộ 0.4kV (Đỏ)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#22c55e')"><div class="line-preview" style="background:#22c55e"></div> Lộ 0.4kV (Xanh lá)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#1e293b')"><div class="line-preview" style="background:#1e293b"></div> Lộ 0.4kV (Đen)</button>
+            <button class="tool-btn" onclick="setMode(this, 'dz04', 'Lộ Hạ thế', '#3b82f6')"><div class="line-preview" style="background:#3b82f6"></div> Lộ 0.4kV (Xanh dương)</button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-advanced')"><span>☰ Công cụ & Tính Tổn Thất</span> <span>▼</span></div>
+        <div id="acc-advanced" class="accordion-content">
+            <button class="tool-btn" onclick="startPolygonSelect(this, 'change_station')" style="justify-content: center; background: #fdf2f8; color: #e11d48; border-color: #f43f5e;">
+                ⬡ Khoanh vùng đổi tên Trạm
+            </button>
+            <button class="tool-btn" onclick="startPolygonSelect(this, 'export_cad')" style="justify-content: center; background: #f0fdf4; color: #16a34a; border-color: #22c55e;">
+                ⬡ Khoanh vùng Xuất CAD (.dxf)
+            </button>
+            <button class="tool-btn" onclick="openLossModal()" style="justify-content: center; background: #eff6ff; color: #1d4ed8; border-color: #3b82f6;">
+                🧮 Tính Tổn Thất & Sụt Áp
+            </button>
+        </div>
+        
+        <div class="accordion-toggle" onclick="toggleAcc('acc-data')"><span>☰ Xuất / Nhập Dữ Liệu</span> <span>▼</span></div>
+        <div id="acc-data" class="accordion-content">
+            <button class="tool-btn" onclick="document.getElementById('excel-input').click()" style="justify-content: center; background: #fef08a; color: #b45309; border-color: #f59e0b;">
+                📊 Nhập từ Excel / CSV
+            </button>
+            <input type="file" id="excel-input" style="display:none" accept=".xlsx, .xls, .csv" onchange="importFromExcel(event)">
+            
+            <button class="tool-btn" onclick="exportToExcel()" style="justify-content: center; background: #d9f99d; color: #0f766e; border-color: #84cc16; margin-top: 5px;">
+                📥 Xuất Excel (Trạm đang bật)
+            </button>
+
+            <button class="tool-btn" onclick="exportActiveToCAD()" style="justify-content: center; background: #e0e7ff; color: #4338ca; border-color: #6366f1; margin-top: 5px;">
+                📐 Xuất CAD .dxf (Trạm đang bật)
+            </button>
+        </div>
+
+        <div class="accordion-toggle" onclick="toggleAcc('acc-filter')"><span>☰ Lọc hiển thị theo Trạm</span> <span>▼</span></div>
+        <div id="acc-filter" class="accordion-content">
+            <div style="padding-right: 5px; margin-top: 5px;">
+                <input type="text" id="station-search" class="station-search-input" placeholder="🔍 Gõ tên trạm để tìm nhanh..." oninput="filterStationList()">
+            </div>
+            <div style="display:flex; gap:5px; margin-bottom:10px; padding-right: 5px;">
+                <button onclick="toggleAllStations(true)" style="flex:1; padding:6px; background:#e0f2fe; border:1px solid #0284c7; border-radius:4px; cursor:pointer; font-weight:bold; color:#0369a1; transition:0.2s;">Bật tất cả</button>
+                <button onclick="toggleAllStations(false)" style="flex:1; padding:6px; background:#fef2f2; border:1px solid #ef4444; border-radius:4px; cursor:pointer; font-weight:bold; color:#b91c1c; transition:0.2s;">Tắt tất cả</button>
+            </div>
+            <div id="station-filter-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:5px; padding-right:5px;">
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <button class="btn-system" style="background:#0284c7" onclick="autoLoadFromCloud()">🔄 Làm mới bản đồ</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
 <script>
-    let currentQuizData = []; 
-    let currentQuestions = [];
-    let userAnswers = [];
-    let currentIdx = 0;
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
+    function toggleAcc(id) { document.getElementById(id).classList.toggle('show'); }
+
+    function formatDistance(meters) {
+        if (meters > 1000) return (meters / 1000).toFixed(2) + ' km';
+        return meters.toFixed(1) + ' m';
+    }
+
+    var positron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM' });
+    var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
+
+    var map = L.map('map', { 
+        center: [22.4856, 104.1481], 
+        zoom: 12, 
+        layers: [positron], 
+        doubleClickZoom: false, 
+        zoomControl: false,
+        preferCanvas: true 
+    });
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    var drawnItems = L.markerClusterGroup({
+        disableClusteringAtZoom: 16, 
+        maxClusterRadius: 35, 
+        spiderfyOnMaxZoom: true,
+        zoomToBoundsOnClick: true,
+        polygonOptions: { fillOpacity: 0, opacity: 0 } 
+    }); 
+    map.addLayer(drawnItems);
     
-    // BIẾN CHO ĐỒNG HỒ
-    let timerInterval = null;
-    let timeRemaining = 0; // Tính bằng giây
+    // Kho chứa các thiết bị đang bị tắt lọc
+    var hiddenItems = new L.FeatureGroup(); 
+    
+    var nationalLayer = new L.FeatureGroup();
 
-    const menuUI = document.getElementById('menu-ui');
-    const studyUI = document.getElementById('study-ui');
-    const quizUI = document.getElementById('quiz-ui');
-    const resultUI = document.getElementById('result-ui');
-    const searchUI = document.getElementById('search-ui'); 
+    var hanoiIcon = L.divIcon({
+        html: '<div style="font-size: 20px; color: #ef4444; text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; text-align: center; margin-top:-5px;">★</div>',
+        className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+    L.marker([21.028511, 105.804817], { icon: hanoiIcon, interactive: false }).addTo(nationalLayer);
 
-    window.onload = () => {
-        const selector = document.getElementById('quiz-selector');
-        if (typeof database === 'undefined') {
-            selector.innerHTML = '<option value="">⚠ Lỗi: Chưa có file database.js</option>';
+    var hoangSaIcon = L.divIcon({
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Hoàng Sa (Việt Nam)</div>',
+        className: '', iconSize: [150, 20], iconAnchor: [75, 10]
+    });
+    L.marker([16.5, 112.0], { icon: hoangSaIcon, interactive: false }).addTo(nationalLayer);
+
+    var truongSaIcon = L.divIcon({
+        html: '<div style="font-size: 13px; font-weight: bold; color: #ef4444; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; white-space: nowrap;">🇻🇳 QĐ. Trường Sa (Việt Nam)</div>',
+        className: '', iconSize: [150, 20], iconAnchor: [75, 10]
+    });
+    L.marker([10.0, 114.0], { icon: truongSaIcon, interactive: false }).addTo(nationalLayer);
+
+    nationalLayer.addTo(map);
+
+    var boundaryLayer = new L.FeatureGroup(); var bounds = [[21.85, 103.5], [22.85, 104.6]]; 
+    L.rectangle(bounds, { color: "#f97316", weight: 3, fillOpacity: 0.05, dashArray: '8, 10' }).addTo(boundaryLayer);
+    map.addLayer(boundaryLayer);
+
+    L.control.layers(
+        { "🗺️ Bản đồ Sạch (Khuyên dùng)": positron, "🛣️ Bản đồ Giao thông": osm, "🛰️ Bản đồ Vệ tinh": satellite },
+        { "⚡ Lưới điện (Tự vẽ)": drawnItems, "🚩 Ranh giới Lào Cai": boundaryLayer },
+        { position: 'topright' }
+    ).addTo(map);
+
+    var drawControl = new L.Control.Draw({ position: 'topright', edit: { featureGroup: drawnItems }, draw: false }); 
+    map.addControl(drawControl);
+
+    L.Control.MeasureCustom = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom-measure');
+            container.innerHTML = `<a href="#" title="Đo khoảng cách (Thước cuộn)" role="button" onclick="toggleMeasureMode(event)">📏</a>`;
+            return container;
+        }
+    });
+    map.addControl(new L.Control.MeasureCustom());
+
+    L.Control.MyLocation = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-my-location');
+            container.innerHTML = `<a href="#" title="Đến vị trí của tôi" role="button" onclick="goToMyLocation(event)">🎯</a>`;
+            return container;
+        }
+    });
+    map.addControl(new L.Control.MyLocation());
+
+    var userLocationMarker = null;
+    var userLocationCircle = null;
+
+    window.createMarkerAtGPS = function(lat, lng, type, title) {
+        if (userLocationMarker) userLocationMarker.closePopup();
+        createMarker([lat, lng], type, title);
+    };
+
+    function goToMyLocation(e) {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        if (!navigator.geolocation) { alert("Trình duyệt không hỗ trợ GPS."); return; }
+        var hint = document.getElementById('draw-hint'); hint.style.display = 'block'; hint.innerHTML = "⏳ Đang lấy tọa độ GPS...";
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                hint.style.display = 'none'; 
+                var lat = position.coords.latitude, lng = position.coords.longitude, accuracy = position.coords.accuracy;
+                map.flyTo([lat, lng], 18);
+                if (userLocationMarker) map.removeLayer(userLocationMarker);
+                if (userLocationCircle) map.removeLayer(userLocationCircle);
+                
+                userLocationCircle = L.circle([lat, lng], { radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1, interactive: false }).addTo(map);
+                userLocationMarker = L.circleMarker([lat, lng], { radius: 7, color: 'white', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
+
+                let popupContent = `
+                    <div style="text-align:center; min-width: 160px;">
+                        <b style="font-size:14px;">📍 Vị trí của bạn</b><br>
+                        <span style="font-size:12px; color:#64748b;">Sai số: ±${Math.round(accuracy)} m</span><br>
+                        <hr style="margin:8px 0; border:0; border-top:1px solid #e2e8f0;">
+                        <b style="font-size:12px; color:#0284c7;">Cắm nhanh thiết bị:</b><br>
+                        <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'tba', 'Trạm biến áp')" style="background:#fef3c7; border:1px solid #f59e0b; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#b45309;">⚡ Trạm biến áp</button>
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'ctt', 'Cột trung thế')" style="background:#fef3c7; border:1px solid #f59e0b; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#b45309;">🔴 Cột trung thế</button>
+                            <button onclick="createMarkerAtGPS(${lat}, ${lng}, 'cht', 'Cột hạ thế')" style="background:#dcfce7; border:1px solid #22c55e; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; color:#15803d;">🟢 Cột hạ thế</button>
+                        </div>
+                    </div>
+                `;
+                userLocationMarker.bindPopup(popupContent).openPopup();
+
+                userLocationMarker.on('click', function(e) {
+                    if (isMeasuring) {
+                        measurePoints.push(e.latlng);
+                        if (measurePoints.length === 1) {
+                            measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                            measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+                        } else { measureLine.setLatLngs(measurePoints); }
+                        setTimeout(() => userLocationMarker.closePopup(), 10);
+                        return;
+                    }
+                    if (currentMode) {
+                        if (currentMode === 'tba' || currentMode === 'ctt' || currentMode === 'cht') {
+                            createMarker(e.latlng, currentMode, currentTitle);
+                        } else { addPointToLine(e.latlng); }
+                        setTimeout(() => userLocationMarker.closePopup(), 10);
+                    }
+                });
+
+            },
+            function(error) { 
+                hint.style.display = 'none'; 
+                if (error.code === 1) { 
+                    alert("❌ Không thể lấy vị trí!\nBạn (hoặc trình duyệt) đã từ chối quyền truy cập GPS. Vui lòng cấp quyền 'Vị trí' cho trang web này trong cài đặt trình duyệt để sử dụng tính năng.");
+                } else {
+                    alert("Lỗi GPS: " + error.message); 
+                }
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
+        );
+    }
+
+    var tempMarker = null;
+    function gotoCoords() {
+        var input = document.getElementById('coord-input').value; var parts = input.split(/[ ,;]+/);
+        if (parts.length >= 2) {
+            var lat = parseFloat(parts[0]); var lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.flyTo([lat, lng], 17);
+                if(tempMarker) map.removeLayer(tempMarker);
+                tempMarker = L.marker([lat, lng]).addTo(map).bindPopup("<b>Tìm kiếm:</b><br>" + lat + ", " + lng).openPopup();
+            } else { alert("Tọa độ không hợp lệ!"); }
+        } else { alert("Hãy nhập định dạng: Vĩ độ, Kinh độ"); }
+    }
+
+    var currentMode = null; var currentTitle = ""; var currentColor = null; var currentDash = null; var currentPolyline = null;
+    let isMeasuring = false; let measureLine = null; let measurePoints = []; let measureTooltip = null;
+    
+    window.movingLayerId = null; 
+    window.editingLayerId = null;
+
+    // ==========================================
+    // KHOANH VÙNG ĐA NĂNG (ĐỔI TRẠM & XUẤT CAD)
+    // ==========================================
+    let currentPolygonAction = 'change_station';
+
+    var polygonDrawer = new L.Draw.Polygon(map, {
+        shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 }
+    });
+
+    function startPolygonSelect(btnElement, action = 'change_station') {
+        currentPolygonAction = action;
+        cancelDrawing(); 
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); 
+        if(btnElement) btnElement.classList.add('active');
+
+        polygonDrawer.enable();
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        if (action === 'export_cad') {
+            polygonDrawer.setOptions({ shapeOptions: { color: '#16a34a', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 } });
+            hint.innerHTML = "🖱️ <b>Khoanh vùng Xuất CAD (.dxf):</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+        } else {
+            polygonDrawer.setOptions({ shapeOptions: { color: '#e11d48', weight: 3, dashArray: '5, 5', fillOpacity: 0.2 } });
+            hint.innerHTML = "🖱️ <b>Khoanh vùng sửa Trạm:</b> Click vẽ các góc. <b>Click lại điểm đầu</b> để hoàn thành. <br><span class='hint-esc'>💡 Nhấn ESC để TẮT</span>";
+        }
+    }
+
+    function isPointInsidePolygon(latlng, polyLayer) {
+        var polyPoints = polyLayer.getLatLngs()[0]; 
+        var x = latlng.lat, y = latlng.lng;
+        var inside = false;
+        for (var i = 0, j = polyPoints.length - 1; i < polyPoints.length; j = i++) {
+            var xi = polyPoints[i].lat, yi = polyPoints[i].lng;
+            var xj = polyPoints[j].lat, yj = polyPoints[j].lng;
+            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    // HÀM TẠO VÀ TẢI FILE DXF (AUTOCAD) ĐÃ NÂNG CẤP HÌNH TRÒN & BỎ TÊN TRẠM
+    function downloadFile(data, filename, type) {
+        var file = new Blob([data], {type: type});
+        var a = document.createElement("a"), url = URL.createObjectURL(file);
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 0); 
+    }
+
+    function removeVietnameseTones(str) {
+        if (!str) return "";
+        return str.normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
+    function exportToDXF(layers) {
+        let dxf = "0\nSECTION\n2\nENTITIES\n";
+        layers.forEach(layer => {
+            if (layer instanceof L.Marker) {
+                let lng = layer.getLatLng().lng;
+                let lat = layer.getLatLng().lat;
+                let name = (layer.options.metadata && layer.options.metadata.name) ? layer.options.metadata.name.trim() : "";
+                let type = (layer.options.customData && layer.options.customData.type) ? layer.options.customData.type : "cht";
+                
+                // Phân màu CAD: TBA = 1 (Đỏ), Trung thế = 2 (Vàng), Hạ thế = 3 (Xanh lá)
+                let colorCode = (type === 'tba') ? 1 : ((type === 'ctt') ? 2 : 3);
+                // Bán kính vòng tròn cột
+                let radius = (type === 'tba') ? 0.00004 : 0.000025;
+
+                // 1. Vẽ Hình tròn (CIRCLE) đại diện cho cột
+                dxf += "0\nCIRCLE\n8\nCot_Dien\n62\n" + colorCode + "\n10\n" + lng + "\n20\n" + lat + "\n40\n" + radius + "\n";
+                
+                // 2. Vẽ Điểm tâm (POINT) ở chính giữa hình tròn để dễ bắt điểm trong CAD
+                dxf += "0\nPOINT\n8\nTam_Cot\n62\n" + colorCode + "\n10\n" + lng + "\n20\n" + lat + "\n";
+
+                // 3. Viết Tên cột (Chỉ lấy tên cột, không kèm tên trạm)
+                if (name !== "" && name !== "Thiết bị" && name !== "Trạm/Cột mới") {
+                    let cleanName = removeVietnameseTones(name);
+                    dxf += "0\nTEXT\n8\nTen_Cot\n62\n4\n10\n" + (lng + radius * 1.4) + "\n20\n" + (lat - radius * 0.5) + "\n40\n0.00005\n1\n" + cleanName + "\n";
+                }
+            } else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                let latlngs = layer.getLatLngs();
+                if (Array.isArray(latlngs[0])) latlngs = latlngs[0]; 
+                
+                dxf += "0\nPOLYLINE\n8\nDuong_Day\n62\n7\n66\n1\n";
+                latlngs.forEach(ll => {
+                    dxf += "0\nVERTEX\n8\nDuong_Day\n10\n" + ll.lng + "\n20\n" + ll.lat + "\n";
+                });
+                dxf += "0\nSEQEND\n8\nDuong_Day\n";
+            }
+        });
+        dxf += "0\nENDSEC\n0\nEOF\n";
+        downloadFile(dxf, "Ban_Ve_Luoi_Dien_CAD.dxf", "text/plain");
+    }
+
+    function exportActiveToCAD() {
+        let activeLayers = drawnItems.getLayers();
+        if (activeLayers.length === 0) {
+            alert("Không có dữ liệu nào đang hiển thị để xuất CAD! Hãy bật ít nhất 1 Trạm ở phần Lọc.");
+            return;
+        }
+        if (confirm(`Xuất ${activeLayers.length} thiết bị/đường dây của các Trạm đang bật ra file AutoCAD (.dxf)?`)) {
+            exportToDXF(activeLayers);
+        }
+    }
+
+    map.on('draw:created', function (e) {
+        if (e.layerType === 'polygon') {
+            let polyLayer = e.layer;
+            map.addLayer(polyLayer);
+
+            let selectedLayers = [];
+            drawnItems.eachLayer(function(layer) {
+                if (layer instanceof L.Marker) {
+                    if (isPointInsidePolygon(layer.getLatLng(), polyLayer)) {
+                        selectedLayers.push(layer);
+                    }
+                } else if (layer instanceof L.Polyline) {
+                    let latlngs = layer.getLatLngs();
+                    let firstPoint = Array.isArray(latlngs[0]) ? latlngs[0][0] : latlngs[0];
+                    if (firstPoint && isPointInsidePolygon(firstPoint, polyLayer)) {
+                        selectedLayers.push(layer);
+                    }
+                }
+            });
+
+            if (selectedLayers.length === 0) {
+                alert("Không tìm thấy thiết bị nào đang hiển thị trong vùng vừa khoanh!");
+                map.removeLayer(polyLayer);
+                document.getElementById('draw-hint').style.display = 'none';
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                return;
+            }
+
+            if (currentPolygonAction === 'export_cad') {
+                if (confirm(`Đã chọn ${selectedLayers.length} đối tượng trong vùng khoanh.\n\nBạn có muốn tải file AutoCAD (.dxf) về máy không?`)) {
+                    exportToDXF(selectedLayers);
+                }
+            } else {
+                let newTram = prompt(`Đã chọn thành công ${selectedLayers.length} thiết bị/đường dây trong vùng.\n\nHãy nhập tên "Thuộc Trạm" mới cho tất cả thiết bị này:`, "");
+                
+                if (newTram !== null) { 
+                    let newName = newTram.trim();
+                    selectedLayers.forEach(layer => {
+                        if (!layer.options.metadata) layer.options.metadata = {};
+                        layer.options.metadata.tram = newName;
+                        updatePopupContent(layer);
+                    });
+                    
+                    updateStationFilterUI(newName === '' ? 'Chưa phân trạm' : newName); 
+                    autoSaveToCloud(true, `Đã cập nhật hàng loạt Trạm "${newName}" cho ${selectedLayers.length} thiết bị!`);
+                }
+            }
+
+            map.removeLayer(polyLayer);
+            document.getElementById('draw-hint').style.display = 'none';
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        }
+    });
+
+    // ==========================================
+    // LOGIC: TÍNH TỔN THẤT & SỤT ÁP HẠ THẾ
+    // ==========================================
+    function openLossModal() {
+        let select = document.getElementById('loss-station-select');
+        select.innerHTML = '<option value="">-- Nhập thông số thủ công --</option>';
+
+        let stations = new Set();
+        const collect = l => {
+            let t = (l.options.metadata && l.options.metadata.tram) ? l.options.metadata.tram.trim() : '';
+            if (t !== '') stations.add(t);
+        };
+        drawnItems.eachLayer(collect);
+        hiddenItems.eachLayer(collect);
+
+        Array.from(stations).sort().forEach(st => {
+            let opt = document.createElement('option');
+            opt.value = st;
+            opt.textContent = "Trạm: " + st;
+            select.appendChild(opt);
+        });
+
+        document.getElementById('loss-modal').classList.add('show');
+    }
+
+    function closeLossModal() {
+        document.getElementById('loss-modal').classList.remove('show');
+    }
+
+    function onSelectStationForLoss() {
+        let st = document.getElementById('loss-station-select').value;
+        let infoDiv = document.getElementById('loss-station-info');
+        if (!st) {
+            infoDiv.style.display = 'none';
+            return;
+        }
+
+        let totalWireLength = 0;
+        let poleCount = 0;
+
+        const scanLayer = layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === st) {
+                if (layer instanceof L.Marker) {
+                    poleCount++;
+                } else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                    let len = (layer.options.customData && layer.options.customData.length) ? layer.options.customData.length : 0;
+                    if (!len && layer.getLatLngs) {
+                        let pts = layer.getLatLngs();
+                        if (pts.length > 0 && !Array.isArray(pts[0])) {
+                            for (let i = 0; i < pts.length - 1; i++) len += map.distance(pts[i], pts[i+1]);
+                        }
+                    }
+                    totalWireLength += len;
+                }
+            }
+        };
+
+        drawnItems.eachLayer(scanLayer);
+        hiddenItems.eachLayer(scanLayer);
+
+        infoDiv.style.display = 'block';
+        if (totalWireLength > 0) {
+            document.getElementById('loss-length').value = Math.round(totalWireLength);
+            infoDiv.innerHTML = `✅ Đã tìm thấy <b>${poleCount} cột</b> và tổng chiều dài dây đã vẽ là <b>${Math.round(totalWireLength)} m</b>.`;
+        } else if (poleCount > 0) {
+            let estLength = poleCount * 38;
+            document.getElementById('loss-length').value = estLength;
+            infoDiv.innerHTML = `ℹ️ Trạm có <b>${poleCount} cột</b> (chưa vẽ đường dây). Tạm ước tính chiều dài ~38m/cột = <b>${estLength} m</b> (Bạn có thể sửa lại số mét).`;
+        } else {
+            infoDiv.innerHTML = `⚠️ Không tìm thấy cột hoặc dây nào của trạm này.`;
+        }
+    }
+
+    function toggleLoadInputType() {
+        let type = document.getElementById('loss-load-type').value;
+        let label = document.getElementById('loss-load-label');
+        let hoursGroup = document.getElementById('loss-hours-group');
+        let valInput = document.getElementById('loss-load-val');
+
+        if (type === 'kwh') {
+            label.textContent = '🔌 Sản lượng tiêu thụ (kWh/tháng):';
+            valInput.value = 2700;
+            hoursGroup.style.display = 'block';
+        } else if (type === 'amp') {
+            label.textContent = '🔌 Dòng điện tải đo được (Ampe):';
+            valInput.value = 25;
+            hoursGroup.style.display = 'block';
+        } else {
+            label.textContent = '🔌 Công suất phụ tải (kW):';
+            valInput.value = 15;
+            hoursGroup.style.display = 'block';
+        }
+    }
+
+    function calculatePowerLoss() {
+        let L_m = parseFloat(document.getElementById('loss-length').value) || 0;
+        let L_km = L_m / 1000;
+        let R0 = parseFloat(document.getElementById('loss-cable').value);
+        let U = parseFloat(document.getElementById('loss-voltage').value);
+        let loadType = document.getElementById('loss-load-type').value;
+        let loadVal = parseFloat(document.getElementById('loss-load-val').value) || 0;
+        let hours = parseFloat(document.getElementById('loss-hours').value) || 8;
+        let distFactor = parseFloat(document.getElementById('loss-load-dist').value) || 1;
+        let cosphi = parseFloat(document.getElementById('loss-cosphi').value) || 0.85;
+
+        if (L_m <= 0 || loadVal <= 0) {
+            alert("Vui lòng nhập chiều dài đường dây và thông số phụ tải lớn hơn 0!");
+            return;
+        }
+
+        let isThreePhase = (U >= 380);
+        let P_kW = 0;
+        let I_amp = 0;
+        let monthly_kWh = 0;
+
+        if (loadType === 'kwh') {
+            monthly_kWh = loadVal;
+            P_kW = monthly_kWh / (30 * hours);
+            if (isThreePhase) {
+                I_amp = (P_kW * 1000) / (Math.sqrt(3) * U * cosphi);
+            } else {
+                I_amp = (P_kW * 1000) / (U * cosphi);
+            }
+        } else if (loadType === 'amp') {
+            I_amp = loadVal;
+            if (isThreePhase) {
+                P_kW = (Math.sqrt(3) * U * I_amp * cosphi) / 1000;
+            } else {
+                P_kW = (U * I_amp * cosphi) / 1000;
+            }
+            monthly_kWh = P_kW * hours * 30;
+        } else {
+            P_kW = loadVal;
+            if (isThreePhase) {
+                I_amp = (P_kW * 1000) / (Math.sqrt(3) * U * cosphi);
+            } else {
+                I_amp = (P_kW * 1000) / (U * cosphi);
+            }
+            monthly_kWh = P_kW * hours * 30;
+        }
+
+        let R_total = R0 * L_km;
+        let X0 = 0.08;
+        let sinphi = Math.sqrt(1 - cosphi * cosphi);
+
+        let deltaU_V = 0;
+        if (isThreePhase) {
+            deltaU_V = Math.sqrt(3) * I_amp * L_km * (R0 * cosphi + X0 * sinphi) * distFactor;
+        } else {
+            deltaU_V = 2 * I_amp * L_km * (R0 * cosphi + X0 * sinphi) * distFactor;
+        }
+
+        let deltaU_percent = (deltaU_V / U) * 100;
+        let U_end = Math.max(0, U - deltaU_V);
+        let U_phase_end = isThreePhase ? (U_end / Math.sqrt(3)) : U_end;
+
+        let deltaP_kW = 0;
+        if (isThreePhase) {
+            deltaP_kW = (3 * Math.pow(I_amp, 2) * R_total * distFactor) / 1000;
+        } else {
+            deltaP_kW = (2 * Math.pow(I_amp, 2) * R_total * distFactor) / 1000;
+        }
+
+        let deltaA_month = deltaP_kW * hours * 30;
+        let lossPercent = (deltaA_month / (monthly_kWh + deltaA_month)) * 100;
+
+        let statusBadge = '';
+        let advice = '';
+        if (deltaU_percent <= 5 && lossPercent <= 5) {
+            statusBadge = `<span class="badge-status badge-good">✅ ĐẠT CHUẨN VẬN HÀNH (< 5%)</span>`;
+            advice = `Lưới điện vận hành tốt, chất lượng điện áp cuối nguồn đảm bảo.`;
+        } else if (deltaU_percent <= 10) {
+            statusBadge = `<span class="badge-status badge-warn">⚠️ CẢNH BÁO SỤT ÁP & TỔN THẤT CAO</span>`;
+            advice = `Khuyến nghị: Kiểm tra cân bằng pha, nâng tiết diện cáp trục chính (VD lên 4x70 hoặc 4x95).`;
+        } else {
+            statusBadge = `<span class="badge-status badge-danger">🚨 QUÁ GIỚI HẠN KỸ THUẬT NGHIÊM TRỌNG</span>`;
+            advice = `Khuyến nghị: Bán kính cấp điện quá xa so với tải. Cần nâng tiết diện dây lớn, kéo lộ xuất tuyến riêng hoặc cấy thêm TBA san tải.`;
+        }
+
+        let resBox = document.getElementById('loss-result-box');
+        resBox.style.display = 'block';
+        resBox.innerHTML = `
+            <div style="margin-bottom:6px;">${statusBadge}</div>
+            • <b>Tổng điện trở tuyến dây (R):</b> ${R_total.toFixed(3)} Ω <i>(Chiều dài ${L_m}m)</i><br>
+            • <b>Dòng điện tính toán (I):</b> <span style="color:#0284c7; font-weight:bold;">${I_amp.toFixed(1)} A</span> <i>(Công suất ~${P_kW.toFixed(1)} kW)</i><br>
+            • <b>Độ sụt áp (ΔU):</b> <span style="color:#e11d48; font-weight:bold;">${deltaU_V.toFixed(1)} V (${deltaU_percent.toFixed(1)}%)</span><br>
+            • <b>Điện áp còn lại ở cuối nguồn:</b> <b>${U_end.toFixed(0)} V</b> ${isThreePhase ? `(Điện áp pha: ~<b>${U_phase_end.toFixed(0)}V</b>)` : ''}<br>
+            • <b>Tổn thất công suất (ΔP):</b> ${deltaP_kW.toFixed(2)} kW<br>
+            • <b>Điện năng thất thoát/tháng (ΔA):</b> <span style="color:#b91c1c; font-weight:bold;">${deltaA_month.toFixed(0)} kWh/tháng</span> (~${lossPercent.toFixed(1)}%)<br>
+            <hr style="border:0; border-top:1px dashed #cbd5e1; margin:6px 0;">
+            <span style="font-size:12.5px; color:#475569;">💡 <b>Đánh giá:</b> ${advice}</span>
+        `;
+    }
+
+    function clearMeasure() {
+        if(measureLine) map.removeLayer(measureLine);
+        if(measureTooltip) map.removeLayer(measureTooltip);
+        measureLine = null; measureTooltip = null; measurePoints = [];
+    }
+
+    function toggleMeasureMode(e) {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        if (isMeasuring) {
+            isMeasuring = false;
+            let btn = document.querySelector('.leaflet-control-custom-measure a');
+            if(btn) { btn.style.backgroundColor = ''; btn.style.border = ''; }
+            clearMeasure();
+            document.getElementById('map').classList.remove('drawing-mode-active');
+            document.getElementById('draw-hint').style.display = 'none';
+        } else {
+            cancelDrawing(); isMeasuring = true;
+            let btn = document.querySelector('.leaflet-control-custom-measure a');
+            if(btn) { btn.style.backgroundColor = '#e0f2fe'; btn.style.border = '2px solid #0284c7'; }
+            document.getElementById('map').classList.add('drawing-mode-active');
+            var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
+            hint.innerHTML = "📏 <b>Chế độ Đo khoảng cách:</b> Click để đo. <b>Click đúp</b> để kết thúc. Nhấn <b>ESC</b> để xóa.";
+        }
+    }
+
+    function cancelDrawing() {
+        if (window.editingLayerId) {
+            saveEditShape();
+            return;
+        }
+        if (window.movingLayerId) { 
+            window.movingLayerId = null; 
+            document.getElementById('map').classList.remove('drawing-mode-active');
+            document.getElementById('draw-hint').style.display = 'none';
+        }
+        if (currentPolyline) { 
+            if (currentPolyline.getLatLngs().length > 1) {
+                finalizePolyline(currentPolyline);
+            } else {
+                map.removeLayer(currentPolyline); 
+            }
+            currentPolyline = null; 
+        }
+        currentMode = null;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('draw-hint').style.display = 'none';
+        document.getElementById('map').classList.remove('drawing-mode-active');
+        if(isMeasuring) { toggleMeasureMode(); } 
+        if(polygonDrawer) { polygonDrawer.disable(); }
+    }
+
+    function setMode(btnElement, mode, title, color = null, dashArray = null) {
+        if (currentMode === mode) { 
+            if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
+            else cancelDrawing(); 
+            return; 
+        }
+        if (currentPolyline && currentPolyline.getLatLngs().length > 1) finishDrawing();
+
+        currentMode = mode; currentTitle = title; currentColor = color; currentDash = dashArray; 
+        
+        if(isMeasuring) { toggleMeasureMode(); } 
+        if(polygonDrawer) { polygonDrawer.disable(); }
+
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
+        
+        var hint = document.getElementById('draw-hint'); hint.style.display = 'block';
+        if (mode.includes('dz') || mode.includes('cn')) {
+            hint.innerHTML = "🖱️ Click từng điểm để vẽ.<br><span class='hint-esc'>💡 Nhấn ESC, Enter, hoặc đúp chuột để LƯU</span>";
+        } else {
+            hint.innerHTML = "🖱️ Click vào bản đồ để cắm thiết bị.<br><span class='hint-esc'>💡 Nhấn ESC hoặc click lại nút để TẮT</span>";
+        }
+        document.getElementById('map').classList.add('drawing-mode-active');
+    }
+
+    document.addEventListener('keydown', function(event) { 
+        if (event.key === "Escape") { 
+            closeGallery(); 
+            closeLossModal();
+            cancelDrawing(); 
+        } 
+        if (event.key === "Enter") {
+            if (window.editingLayerId) saveEditShape();
+            else if (currentPolyline) finishDrawing();
+        }
+    });
+
+    function addPointToLine(latlng) {
+        if (!currentPolyline) {
+            let style = { color: currentColor, weight: 4, opacity: 0.9, interactive: false }; 
+            if (currentDash) style.dashArray = currentDash;
+            currentPolyline = L.polyline([latlng], style).addTo(map);
+            currentPolyline.options.customData = { type: currentMode, title: currentTitle, color: currentColor, dash: currentDash };
+            currentPolyline.options.metadata = { name: 'Đường dây mới', info: '', tram: '', img: '', maLienKet: generateId() };
+        } else { 
+            currentPolyline.addLatLng(latlng); 
+        }
+    }
+
+    map.on('click', function(e) {
+        if (window.editingLayerId) return;
+
+        if (window.movingLayerId) {
+            var layerToMove = drawnItems.getLayer(window.movingLayerId);
+            if (layerToMove && layerToMove instanceof L.Marker) {
+                layerToMove.setLatLng(e.latlng);
+                window.movingLayerId = null;
+                document.getElementById('map').classList.remove('drawing-mode-active');
+                document.getElementById('draw-hint').style.display = 'none';
+                autoSaveToCloud(true, "Đã dời vị trí thiết bị thành công!");
+            }
+            return;
+        }
+
+        if (isMeasuring) {
+            measurePoints.push(e.latlng);
+            if (measurePoints.length === 1) {
+                measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+            } else { measureLine.setLatLngs(measurePoints); }
+            return;
+        }
+
+        if (!currentMode) return;
+        if (currentMode === 'tba' || currentMode === 'ctt' || currentMode === 'cht') {
+            createMarker(e.latlng, currentMode, currentTitle);
+        } else { addPointToLine(e.latlng); }
+    });
+
+    map.on('mousemove', function(e) {
+        if (isMeasuring && measurePoints.length > 0) {
+            let tempPoints = [...measurePoints, e.latlng]; measureLine.setLatLngs(tempPoints);
+            let dist = 0; for(let i=0; i<tempPoints.length-1; i++) dist += map.distance(tempPoints[i], tempPoints[i+1]);
+            measureTooltip.setLatLng(e.latlng).setContent(formatDistance(dist));
+        }
+    });
+
+    drawnItems.on('click', function(e) {
+        if (window.editingLayerId) return;
+
+        if (window.movingLayerId) {
+            var layerToMove = drawnItems.getLayer(window.movingLayerId);
+            if (layerToMove && layerToMove instanceof L.Marker) {
+                layerToMove.setLatLng(e.latlng);
+                window.movingLayerId = null;
+                document.getElementById('map').classList.remove('drawing-mode-active');
+                document.getElementById('draw-hint').style.display = 'none';
+                autoSaveToCloud(true, "Đã dời vị trí thiết bị thành công!");
+            }
+            return;
+        }
+
+        if (isMeasuring) {
+            measurePoints.push(e.latlng);
+            if (measurePoints.length === 1) {
+                measureLine = L.polyline(measurePoints, {color: '#ef4444', weight: 4, dashArray: '5, 8'}).addTo(map);
+                measureTooltip = L.tooltip({permanent: true, direction: 'right', className: 'measure-tooltip'}).setLatLng(e.latlng).addTo(map).setContent('0 m');
+            } else { measureLine.setLatLngs(measurePoints); }
+            setTimeout(() => { if (e.layer && e.layer.closePopup) e.layer.closePopup(); }, 10);
             return;
         }
         
-        selector.innerHTML = ''; 
-        for (let quizName in database) {
-            let option = document.createElement('option');
-            option.value = quizName;
-            option.innerText = quizName + ` (${database[quizName].length} câu)`;
-            selector.appendChild(option);
+        if (currentMode && (currentMode.includes('dz') || currentMode.includes('cn'))) {
+            addPointToLine(e.latlng); 
+
+            if (e.layer && e.layer.options && e.layer.options.metadata) {
+                let clickedTram = e.layer.options.metadata.tram;
+                if (clickedTram && clickedTram.trim() !== "") {
+                    if (currentPolyline) {
+                        if (!currentPolyline.options.metadata.tram || currentPolyline.options.metadata.tram === "") {
+                            currentPolyline.options.metadata.tram = clickedTram.trim();
+                        }
+                    }
+                }
+            }
+            return;
+        }
+    });
+
+    map.on('dblclick', finishDrawing); map.on('contextmenu', finishDrawing);
+    
+    function finishDrawing(e) {
+        if (e && e.originalEvent) e.originalEvent.preventDefault();
+        if (isMeasuring) { isMeasuring = false; document.getElementById('draw-hint').innerHTML = "📏 Đo xong. Nhấn <b>ESC</b> để xóa."; return; }
+        if (currentPolyline) { 
+            if (currentPolyline.getLatLngs().length > 1) {
+                finalizePolyline(currentPolyline); 
+            } else {
+                map.removeLayer(currentPolyline);
+            }
+            currentPolyline = null; 
+        }
+    }
+
+    function finalizePolyline(polyLayer) {
+        if (map.hasLayer(polyLayer)) map.removeLayer(polyLayer); 
+        polyLayer.setStyle({ interactive: true }); 
+        
+        let latlngs = polyLayer.getLatLngs(); 
+        let dist = 0;
+        for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
+        polyLayer.options.customData.length = dist; 
+        
+        if (!drawnItems.hasLayer(polyLayer)) drawnItems.addLayer(polyLayer); 
+        
+        editLayerData(L.stamp(polyLayer), true);
+        updateStationFilterUI('Chưa phân trạm'); 
+        autoSaveToCloud(); 
+    }
+
+    function getCustomIcon(type, labelText) {
+        let iconClass = 'map-icon-' + type; let displayLabel = (labelText && labelText !== 'Thiết bị' && labelText !== 'Trạm/Cột mới') ? labelText : '';
+        let html = `<div class="${iconClass}"></div><div class="marker-label">${displayLabel}</div>`;
+        return L.divIcon({ html: html, className: 'custom-labeled-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
+    }
+
+    function generateId() { return 'LK-' + Math.random().toString(36).substring(2, 8).toUpperCase(); }
+
+    function createMarker(latlng, type, title) {
+        let marker = L.marker(latlng, { icon: getCustomIcon(type, '') }).addTo(drawnItems);
+        marker.options.customData = { type: type, title: title }; 
+        marker.options.metadata = { name: '', info: '', tram: '', img: '', maLienKet: generateId() };
+        editLayerData(L.stamp(marker), true);
+        
+        updateStationFilterUI('Chưa phân trạm'); 
+        autoSaveToCloud(); 
+    }
+
+    map.on('popupopen', function(e) {
+        if (currentMode || isMeasuring || window.movingLayerId || window.editingLayerId) {
+            map.closePopup();
+            return;
+        }
+
+        var layer = e.popup._source;
+        if (layer && layer instanceof L.Polyline && layer.getLatLngs && !(layer instanceof L.Polygon)) { 
+            layer.setStyle({ weight: 10, opacity: 1, className: 'highlighted-line' }); if (layer.bringToFront) layer.bringToFront();
+        }
+    });
+
+    map.on('popupclose', function(e) {
+        var layer = e.popup._source;
+        
+        if (layer && layer instanceof L.Polyline && layer.getLatLngs && map.hasLayer(layer) && !(layer instanceof L.Polygon)) {
+            let custom = layer.options.customData || {}; layer.setStyle({ weight: 4, opacity: 0.9, color: custom.color || '#3388ff', dashArray: custom.dash || null, className: '' });
+        }
+
+        if (tempMarker && layer === tempMarker) {
+            map.removeLayer(tempMarker);
+            tempMarker = null;
+        }
+
+        if (userLocationMarker && layer === userLocationMarker) {
+            map.removeLayer(userLocationMarker);
+            userLocationMarker = null;
+            if (userLocationCircle) {
+                map.removeLayer(userLocationCircle);
+                userLocationCircle = null;
+            }
+        }
+    });
+
+    function fixGoogleDriveLink(url) {
+        var match = url.trim().match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url.trim(); 
+    }
+
+    window.startMoveLayer = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+        window.movingLayerId = layerId;
+        
+        document.getElementById('map').classList.add('drawing-mode-active');
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = "📍 <b>Chế độ Dời vị trí:</b> Click vào chỗ trống trên bản đồ để chuyển thiết bị tới đó.<br><span class='hint-esc'>💡 Nhấn ESC để HỦY</span>";
+    };
+
+    window.continueLine = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+        
+        currentPolyline = layer;
+        
+        let custom = layer.options.customData || {};
+        currentMode = custom.type || 'dz04'; 
+        currentTitle = custom.title || 'Đường dây';
+        currentColor = custom.color || '#ef4444';
+        currentDash = custom.dash || null;
+
+        document.getElementById('map').classList.add('drawing-mode-active');
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block';
+        hint.innerHTML = `🔗 <b>Đang Vẽ Tiếp:</b> Click để nối dài dây.<br><button onclick="finishDrawing()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 XONG / LƯU LẠI</button>`;
+    };
+
+    window.startEditShape = function(layerId) {
+        var layer = drawnItems.getLayer(layerId);
+        if (!layer) return;
+        map.closePopup();
+
+        if (layer.editing) {
+            layer.editing.enable();
+            window.editingLayerId = layerId;
+            
+            var hint = document.getElementById('draw-hint');
+            hint.style.display = 'block';
+            hint.innerHTML = `🛠️ <b>Sửa Mốc Dây:</b> Nhấn giữ và kéo các ô vuông để nắn dây.<br><button onclick="saveEditShape()" style="margin-top:8px; padding:6px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">💾 LƯU LẠI</button>`;
         }
     };
 
-    function goHome() {
-        stopTimer(); // Dừng đồng hồ nếu đang chạy
-        studyUI.classList.add('hidden');
-        quizUI.classList.add('hidden');
-        resultUI.classList.add('hidden');
-        searchUI.classList.add('hidden'); 
-        menuUI.classList.remove('hidden');
-    }
+    window.saveEditShape = function() {
+        if (window.editingLayerId) {
+            var layer = drawnItems.getLayer(window.editingLayerId);
+            if (layer && layer.editing) {
+                layer.editing.disable();
+                
+                let latlngs = layer.getLatLngs(); let dist = 0;
+                if (latlngs.length > 0 && !Array.isArray(latlngs[0])) {
+                    for(let i=0; i<latlngs.length-1; i++) dist += map.distance(latlngs[i], latlngs[i+1]);
+                    if(!layer.options.customData) layer.options.customData = {};
+                    layer.options.customData.length = dist; 
+                }
+                updatePopupContent(layer);
+                autoSaveToCloud(true, "Đã cập nhật hình dáng dây!");
+            }
+            window.editingLayerId = null;
+            document.getElementById('draw-hint').style.display = 'none';
+        }
+    };
 
-    function getSelectedQuizData() {
-        const selector = document.getElementById('quiz-selector');
-        if (!selector || !selector.value) return null;
-        return database[selector.value];
-    }
+    window.editLayerData = function(layerId, isNew = false) {
+        var layer = drawnItems.getLayer(layerId); if(!layer) return;
+        var meta = layer.options.metadata || {}; var custom = layer.options.customData || {};
+        
+        meta.name = meta.name || ''; meta.info = meta.info || ''; 
+        meta.tram = meta.tram || ''; meta.img = meta.img || ''; 
+        if(!meta.maLienKet) meta.maLienKet = generateId(); 
 
-    function startSearchMode() {
-        const selectedCategory = document.getElementById('quiz-selector').value;
-        if (!selectedCategory || typeof database === 'undefined') {
-            return alert("Vui lòng chọn một bộ đề ở Menu trước khi tìm kiếm!");
+        var form = `
+            <div class="popup-form">
+                <h3>${isNew ? `Thêm Mới: ${custom.title || ''}` : `Sửa Thông Tin`}</h3>
+                <input type="text" id="p-name-${layerId}" value="${meta.name}" placeholder="Tên thiết bị (hiện dưới icon)">
+                <input type="text" id="p-info-${layerId}" value="${meta.info}" placeholder="Chức năng / Thông số kỹ thuật">
+                <input type="text" id="p-tram-${layerId}" value="${meta.tram}" placeholder="Thuộc trạm (VD: Trạm Thôn Vinh)">
+                <input type="text" id="p-img-${layerId}" value="${meta.img}" placeholder="Dán Link Ảnh / Link Drive">
+                <input type="text" id="p-ma-${layerId}" value="${meta.maLienKet}" placeholder="Mã LK (Tự sinh)" style="background:#f8fafc; font-size:12px; color:#64748b;" readonly title="Mã liên kết tự động sinh ra">
+                <button class="btn-save" onclick="saveEditData(${layerId})">💾 Lưu Thông Tin</button>
+            </div>`;
+        if(isNew) layer.bindPopup(form).openPopup(); else layer.setPopupContent(form);
+    };
+
+    window.saveEditData = function(layerId) {
+        var layer = drawnItems.getLayer(layerId); if(!layer) return;
+        let newName = document.getElementById(`p-name-${layerId}`).value || 'Thiết bị';
+        let newTram = document.getElementById(`p-tram-${layerId}`).value || '';
+        
+        layer.options.metadata = { 
+            name: newName, 
+            info: document.getElementById(`p-info-${layerId}`).value || '', 
+            tram: newTram,
+            img: document.getElementById(`p-img-${layerId}`).value || '',
+            maLienKet: document.getElementById(`p-ma-${layerId}`).value || ''
+        };
+        
+        if (layer instanceof L.Marker && layer.options.customData && layer.options.customData.type) { layer.setIcon(getCustomIcon(layer.options.customData.type, newName)); }
+        updatePopupContent(layer);
+        
+        let tramKey = newTram.trim() === '' ? 'Chưa phân trạm' : newTram.trim();
+        updateStationFilterUI(tramKey); 
+        
+        autoSaveToCloud(); 
+    };
+
+    window.deleteLayerQuick = function(layerId) { 
+        if(confirm("Xóa đối tượng này khỏi bản đồ?")) { 
+            var layer = drawnItems.getLayer(layerId); 
+            if(layer) {
+                map.closePopup(); 
+                drawnItems.removeLayer(layer); 
+                updateStationFilterUI(); 
+                autoSaveToCloud(); 
+            }
+        } 
+    };
+
+    function updatePopupContent(layer) {
+        var meta = layer.options.metadata || {}; var custom = layer.options.customData || {}; var layerId = L.stamp(layer);
+        var content = `<div class="popup-form"><h3>${custom.title || ''} - ${meta.name || ''}</h3>`;
+        
+        if (custom.length !== undefined) {
+            content += `<div style="background:#e0f2fe; color:#0369a1; padding:6px; border-radius:4px; font-size:13px; font-weight:bold; margin-bottom:8px; text-align:center; border: 1px dashed #0284c7;">📏 Chiều dài: ${formatDistance(custom.length)}</div>`;
+        }
+
+        if (meta.info) content += `<p style="margin:5px 0;"><b>Thông số:</b> ${meta.info}</p>`;
+        if (meta.maLienKet) content += `<p style="margin:5px 0; font-size:12px; color:#475569;"><b>🔗 Mã LK:</b> ${meta.maLienKet}</p>`;
+        if (meta.tram) content += `<p style="margin:5px 0;"><b>🏢 Trạm:</b> <span style="color:#b45309; font-weight:bold;">${meta.tram}</span></p>`;
+
+        var imgStr = meta.img ? meta.img.toString().trim() : '';
+        if (imgStr.includes('drive.google.com') && imgStr.includes('/folders/')) {
+            content += `<a href="${imgStr}" target="_blank" class="btn-folder">📂 Mở thư mục ảnh (Google Drive)</a>`;
+        } else {
+            var imgArr = imgStr.split(',').map(s => fixGoogleDriveLink(s)).filter(s => s);
+            if(imgArr.length > 0) {
+                var safeArr = encodeURIComponent(JSON.stringify(imgArr));
+                content += `<img src="${imgArr[0]}" class="popup-img" title="Click để xem" onclick="openGallery('${safeArr}')" onerror="this.style.display='none'">`;
+                if(imgArr.length > 1) { content += `<div class="img-count-badge">📷 Có ${imgArr.length} ảnh. Click vào ảnh để xem toàn bộ.</div>`; }
+            }
         }
         
-        menuUI.classList.add('hidden');
-        searchUI.classList.remove('hidden');
-        document.getElementById('search-title').innerText = `Tra Cứu: ${selectedCategory}`;
-        const searchInput = document.getElementById('search-input');
-        const resultsContainer = document.getElementById('search-results');
+        let moveBtn = (layer instanceof L.Marker) ? `<button class="btn-move" onclick="startMoveLayer(${layerId})">📍 Dời cột</button>` : '';
+        let lineBtns = (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) ? 
+            `<button class="btn-continue" onclick="continueLine(${layerId})">🔗 Vẽ tiếp</button>
+             <button class="btn-edit-shape" onclick="startEditShape(${layerId})">🛠️ Sửa mốc</button>` : '';
         
-        searchInput.value = ''; 
-        resultsContainer.innerHTML = `<div style="text-align:center; color:#64748b; margin-top: 20px;">Gõ từ khóa để tìm kiếm trong bộ đề <b>${selectedCategory}</b>...</div>`;
-        searchInput.focus(); 
+        content += `<div class="action-btns">
+            ${moveBtn}
+            ${lineBtns}
+            <button class="btn-edit" onclick="editLayerData(${layerId})">✏️ Sửa TT</button>
+            <button class="btn-delete" onclick="deleteLayerQuick(${layerId})">🗑️ Xóa</button>
+        </div></div>`;
+        
+        layer.bindPopup(content); if(layer.isPopupOpen()) layer.setPopupContent(content);
     }
 
-    function performSearch() {
-        const query = document.getElementById('search-input').value.toLowerCase().trim();
-        const resultsContainer = document.getElementById('search-results');
-        const selectedCategory = document.getElementById('quiz-selector').value;
-        
-        if (query.length < 2) {
-            resultsContainer.innerHTML = `<div style="text-align:center; color:#64748b; margin-top: 20px;">Vui lòng nhập ít nhất 2 ký tự...</div>`;
-            return;
-        }
+    window.openGallery = function(safeArrStr) {
+        var arr = JSON.parse(decodeURIComponent(safeArrStr)); document.getElementById('gallery-modal').classList.add('show');
+        var mainImg = document.getElementById('main-gallery-img'); var strip = document.getElementById('thumb-strip'); strip.innerHTML = '';
+        arr.forEach((src, idx) => {
+            let img = document.createElement('img'); img.src = src; img.className = 'thumb-img' + (idx === 0 ? ' active' : '');
+            img.onclick = function() { mainImg.src = src; document.querySelectorAll('.thumb-img').forEach(t => t.classList.remove('active')); img.classList.add('active'); };
+            strip.appendChild(img);
+        }); mainImg.src = arr[0];
+    };
+    window.closeGallery = function() { document.getElementById('gallery-modal').classList.remove('show'); document.getElementById('main-gallery-img').src = ''; };
 
-        let resultsHTML = '';
-        let count = 0;
-        const dataToSearch = database[selectedCategory];
+    // ==========================================
+    // LOGIC: LỌC TRẠM THÔNG MINH & TÌM KIẾM TRẠM
+    // ==========================================
+    function getCheckedStations() {
+        let checkboxes = document.querySelectorAll('.station-cb');
+        let checked = [];
+        checkboxes.forEach(cb => { if(cb.checked) checked.push(cb.value); });
+        return checked;
+    }
 
-        dataToSearch.forEach((item) => {
-            if (item.q.toLowerCase().includes(query)) {
-                count++;
-                let html = `
-                    <div class="list-item">
-                        <div class="q-text">${item.q}</div>
-                `;
-                ['a', 'b', 'c', 'd'].forEach(key => {
-                    if(item[key]) {
-                        if (key === item.correct) {
-                            html += `<div class="ans-box ans-correct">✔ <strong>${key.toUpperCase()}. ${item[key]}</strong></div>`;
-                        } else {
-                            html += `<div class="ans-box ans-neutral">${key.toUpperCase()}. ${item[key]}</div>`;
-                        }
-                    }
-                });
-                html += `</div>`;
-                resultsHTML += html;
+    function filterStationList() {
+        let kw = (document.getElementById('station-search').value || '').toLowerCase().trim();
+        let labels = document.querySelectorAll('#station-filter-list .station-label');
+        labels.forEach(lb => {
+            let text = lb.textContent.toLowerCase();
+            lb.style.display = text.includes(kw) ? 'flex' : 'none';
+        });
+    }
+
+    function toggleAllStations(isCheck) {
+        let labels = document.querySelectorAll('#station-filter-list .station-label');
+        labels.forEach(lb => {
+            if (lb.style.display !== 'none') {
+                let cb = lb.querySelector('.station-cb');
+                if (cb) cb.checked = isCheck;
             }
         });
-
-        if (count === 0) {
-            resultsContainer.innerHTML = `<div style="text-align:center; color:#ef4444; margin-top: 20px;">Không tìm thấy câu hỏi nào chứa từ khóa "<b>${query}</b>" trong bộ đề này.</div>`;
-        } else {
-            resultsContainer.innerHTML = `<div style="margin-bottom: 15px; font-weight: bold; color: var(--primary);">🎯 Tìm thấy ${count} kết quả:</div>` + resultsHTML;
-        }
+        applyStationFilter();
     }
 
-    function startStudyMode() {
-        currentQuizData = getSelectedQuizData();
-        if (!currentQuizData) return alert("Vui lòng chọn bộ đề hợp lệ!");
+    function updateStationFilterUI(forceCheckStation = null) {
+        let currentChecked = getCheckedStations(); 
+        let stations = new Set();
+        
+        const collectStation = layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            stations.add(tram === '' ? 'Chưa phân trạm' : tram);
+        };
 
-        menuUI.classList.add('hidden');
-        studyUI.classList.remove('hidden');
-        document.getElementById('study-title').innerText = `Ôn Tập: ${document.getElementById('quiz-selector').value}`;
+        drawnItems.eachLayer(collectStation);
+        hiddenItems.eachLayer(collectStation);
+
+        let stationArray = Array.from(stations).sort();
+        let listContainer = document.getElementById('station-filter-list');
+        listContainer.innerHTML = '';
+
+        let isFirstLoad = (currentChecked.length === 0 && document.querySelectorAll('.station-cb').length === 0);
+
+        stationArray.forEach(tram => {
+            let isChecked = isFirstLoad || currentChecked.includes(tram) || tram === forceCheckStation;
+            
+            let label = document.createElement('label');
+            label.className = 'station-label';
+            
+            let cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'station-cb';
+            cb.value = tram;
+            cb.checked = isChecked;
+            cb.onchange = applyStationFilter;
+
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(tram));
+            listContainer.appendChild(label);
+        });
+
+        filterStationList();
+        applyStationFilter(); 
+    }
+
+    function applyStationFilter() {
+        let checkedStations = getCheckedStations();
         
-        const list = document.getElementById('study-list');
-        list.innerHTML = ''; 
+        let toHide = [];
+        drawnItems.eachLayer(layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === '') tram = 'Chưa phân trạm';
+
+            if (!checkedStations.includes(tram)) {
+                toHide.push(layer);
+            }
+        });
+        toHide.forEach(layer => {
+            if (layer.isPopupOpen()) layer.closePopup();
+            drawnItems.removeLayer(layer);
+            hiddenItems.addLayer(layer);
+        });
+
+        let toShow = [];
+        hiddenItems.eachLayer(layer => {
+            let tram = (layer.options.metadata && layer.options.metadata.tram) ? layer.options.metadata.tram.trim() : '';
+            if (tram === '') tram = 'Chưa phân trạm';
+
+            if (checkedStations.includes(tram)) {
+                toShow.push(layer);
+            }
+        });
+        toShow.forEach(layer => {
+            hiddenItems.removeLayer(layer);
+            drawnItems.addLayer(layer);
+        });
+    }
+
+    map.on('moveend', applyStationFilter);
+    map.on('zoomend', applyStationFilter);
+
+    // ==========================================
+    // KẾT NỐI FIREBASE REALTIME DATABASE
+    // ==========================================
+    const FIREBASE_URL = 'https://luoi-dien-van-ban-default-rtdb.asia-southeast1.firebasedatabase.app/dulieu.json';
+
+    function autoLoadFromCloud() {
+        if (FIREBASE_URL.includes("DÁN-LINK")) {
+            console.log("Bạn chưa cấu hình link Firebase."); return;
+        }
+
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block'; hint.innerHTML = "⏳ Đang tải dữ liệu lưới điện từ Firebase...";
         
-        currentQuizData.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            let html = `<div class="q-text">Câu ${index + 1}: ${item.q}</div>`;
-            ['a', 'b', 'c', 'd'].forEach(key => {
-                if(item[key]) {
-                    if (key === item.correct) html += `<div class="ans-box ans-correct">✔ <strong>${key.toUpperCase()}. ${item[key]}</strong></div>`;
-                    else html += `<div class="ans-box ans-neutral">${key.toUpperCase()}. ${item[key]}</div>`;
+        fetch(FIREBASE_URL)
+        .then(response => response.json())
+        .then(res => {
+            hint.style.display = 'none';
+            if (!res || !res.features) return; 
+            
+            drawnItems.clearLayers();
+            hiddenItems.clearLayers();
+            L.geoJSON(res, {
+                pointToLayer: function(feature, latlng) {
+                    let custom = feature.properties.customData || {}; let type = custom.type || 'tba'; let meta = feature.properties.metadata || {}; return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
+                },
+                style: function(feature) {
+                    let custom = feature.properties.customData || {}; let style = { weight: 4, color: custom.color || '#3388ff' };
+                    if(custom.dash) style.dashArray = custom.dash; return style;
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.options.metadata = feature.properties.metadata || {}; 
+                    layer.options.customData = feature.properties.customData || { type: 'tba', title: 'Thiết bị cũ' };
+                    if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
+                    drawnItems.addLayer(layer); updatePopupContent(layer); 
                 }
             });
-            div.innerHTML = html;
-            list.appendChild(div);
+            if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            
+            updateStationFilterUI();
+        })
+        .catch(err => {
+            hint.style.display = 'none';
+            console.error("Lỗi tải dữ liệu Firebase:", err);
         });
     }
 
-    // --- LOGIC ĐỒNG HỒ ---
-    function formatTime(seconds) {
-        let m = Math.floor(seconds / 60);
-        let s = seconds % 60;
-        return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-    }
+    function autoSaveToCloud(showSuccessAlert = false, customMsg = "") {
+        if (FIREBASE_URL.includes("DÁN-LINK")) return; 
 
-    function startTimer(minutes) {
-        timeRemaining = minutes * 60;
-        const timerDisplay = document.getElementById('timer-display');
-        const timeText = document.getElementById('time-left');
-        
-        timerDisplay.classList.remove('hidden', 'timer-warning');
-        timeText.innerText = formatTime(timeRemaining);
+        var hint = document.getElementById('draw-hint');
+        hint.style.display = 'block'; hint.innerHTML = "💾 Đang đồng bộ lên Firebase...";
 
-        timerInterval = setInterval(() => {
-            timeRemaining--;
-            timeText.innerText = formatTime(timeRemaining);
+        var data = { type: "FeatureCollection", features: [] };
 
-            if (timeRemaining <= 60) {
-                // Đổi màu cảnh báo khi còn dưới 1 phút
-                timerDisplay.classList.add('timer-warning');
+        const processSave = function(layer) {
+            if (layer.toGeoJSON) {
+                var geo = layer.toGeoJSON();
+                geo.properties = { metadata: layer.options.metadata, customData: layer.options.customData };
+                data.features.push(geo);
             }
+        };
 
-            if (timeRemaining <= 0) {
-                stopTimer();
-                alert("⏳ ĐÃ HẾT GIỜ LÀM BÀI! Hệ thống sẽ tự động nộp bài của bạn.");
-                submitQuiz(true); // true = nộp bài do hết giờ, không hỏi xác nhận
-            }
-        }, 1000);
-    }
+        drawnItems.eachLayer(processSave);
+        hiddenItems.eachLayer(processSave);
 
-    function stopTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-        document.getElementById('timer-display').classList.add('hidden');
-    }
-
-    // --- CHẾ ĐỘ THI THỬ ---
-    function startQuizMode(isFull) {
-        currentQuizData = getSelectedQuizData();
-        if (!currentQuizData) return alert("Vui lòng chọn bộ đề hợp lệ!");
-
-        let shuffled = [...currentQuizData].sort(() => 0.5 - Math.random());
-        let maxQuestions = isFull ? shuffled.length : Math.min(50, shuffled.length);
-        currentQuestions = shuffled.slice(0, maxQuestions);
-        
-        userAnswers = new Array(currentQuestions.length).fill(null);
-        currentIdx = 0;
-        
-        menuUI.classList.add('hidden');
-        quizUI.classList.remove('hidden');
-        
-        // Bật đồng hồ nếu là thi 50 câu (Không phải full)
-        if (!isFull) {
-            startTimer(50); // Cài đặt thời gian: 50 phút
-        } else {
-            stopTimer(); // Đảm bảo tắt đồng hồ nếu thi full
-        }
-
-        loadQuestion();
-    }
-
-    function loadQuestion() {
-        const data = currentQuestions[currentIdx];
-        document.getElementById('progress').innerText = `Câu: ${currentIdx + 1} / ${currentQuestions.length}`;
-        document.getElementById('question-box').innerText = data.q;
-        
-        const oBox = document.getElementById('options-box');
-        oBox.innerHTML = '';
-        
-        ['a', 'b', 'c', 'd'].forEach(key => {
-            if(data[key]) {
-                const div = document.createElement('div');
-                div.className = 'option';
-                
-                if (userAnswers[currentIdx] === key) div.classList.add('selected');
-                
-                div.innerText = `${key.toUpperCase()}. ${data[key]}`;
-                div.onclick = () => {
-                    document.querySelectorAll('.option').forEach(el => el.classList.remove('selected'));
-                    div.classList.add('selected');
-                    userAnswers[currentIdx] = key; 
-                };
-                oBox.appendChild(div);
-            }
+        fetch(FIREBASE_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Lỗi từ Firebase Database');
+            return response.json();
+        })
+        .then(res => {
+            hint.style.display = 'none';
+            if (showSuccessAlert) alert("✅ " + (customMsg || "Đã đồng bộ thành công!"));
+        })
+        .catch(err => {
+            hint.style.display = 'none';
+            console.error("Lỗi lưu dữ liệu:", err);
+            alert("❌ Lỗi đồng bộ máy chủ Firebase!\nKiểm tra lại kết nối mạng của bạn.");
         });
-
-        document.getElementById('prev-btn').disabled = (currentIdx === 0);
-        document.getElementById('next-btn').disabled = (currentIdx === currentQuestions.length - 1);
     }
 
-    function prevQuestion() { if (currentIdx > 0) { currentIdx--; loadQuestion(); } }
-    function nextQuestion() { if (currentIdx < currentQuestions.length - 1) { currentIdx++; loadQuestion(); } }
+    window.onload = autoLoadFromCloud;
+    // ==========================================
+    // VẼ LỚP NỀN KHOANH VÙNG (KHÔNG BỊ ẢNH HƯỞNG BỞI LỌC TRẠM)
+    // ==========================================
 
-    function submitQuiz(isTimeOut = false) {
-        // Nếu do người dùng tự bấm nộp bài, kiểm tra xem có câu nào chưa làm không
-        if (!isTimeOut) {
-            const unanswered = userAnswers.filter(ans => ans === null).length;
-            if (unanswered > 0) {
-                const confirmSubmit = confirm(`Bạn còn ${unanswered} câu chưa làm. Bạn có chắc chắn muốn nộp bài?`);
-                if (!confirmSubmit) return; 
+    // 1. Dữ liệu 200ha (Đã cấu hình tô màu Vàng)
+    const data200ha = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[104.17943008579,22.20401125536],[104.17388672911,22.21022616029],[104.1756344473,22.21001734974],[104.17580607946,22.21000108234],[104.17597839071,22.20999320115],[104.17615090878,22.20999372778],[104.17632316084,22.21000266079],[104.17649467479,22.2100199757],[104.17666498056,22.21004562505],[104.17683361137,22.21007953854],[104.17700010505,22.21012162323],[104.17716400527,22.21017176376],[104.17732486283,22.21022982273],[104.17748223684,22.21029564099],[104.17763569598,22.21036903817],[104.17778481964,22.21044981309],[104.17782705742,22.21047450441],[104.17814666273,22.21066449301],[104.17818173576,22.21087382214],[104.17766723181,22.21145064774],[104.17765040987,22.21146975976],[104.17758570362,22.21154838553],[104.17752550523,22.2116300568],[104.1774699797,22.21171454973],[104.17741927923,22.21180163271],[104.1773735428,22.21189106708],[104.17733289577,22.2119826077],[104.17729744956,22.21207600368],[104.17726730133,22.21217099901],[104.17724253373,22.21226733334],[104.17722321466,22.21236474261],[104.17720939707,22.21246295984],[104.17709599219,22.21347390043],[104.17722142356,22.21348435724],[104.17734609532,22.2135009121],[104.17746966577,22.21352351962],[104.17759179621,22.21355211784],[104.17771215191,22.21358662838],[104.17776608922,22.21360421276],[104.17780855951,22.21361858829],[104.17785813833,22.21363685144],[104.1779065394,22.2136576743],[104.17795361043,22.21368099134],[104.17799920333,22.21370672921],[104.17804317464,22.21373480693],[104.17808538602,22.21376513615],[104.17812570465,22.21379762144],[104.17815052042,22.21381955526],[104.17845980762,22.21410294931],[104.17868200522,22.21444534579],[104.17891177972,22.21498821324],[104.17907487391,22.21571605065],[104.17910189339,22.21585468756],[104.17911764874,22.21596455356],[104.17918175315,22.21649455011],[104.17919474632,22.21663493089],[104.17919983115,22.21677575244],[104.17919805819,22.21689208899],[104.17918878916,22.21713301779],[104.17918247098,22.21722739891],[104.17917080305,22.21732133706],[104.17915381802,22.21741456953],[104.17913156335,22.2175068356],[104.17910410129,22.21759787724],[104.17909853737,22.21761432852],[104.17907162755,22.21769257567],[104.17903810857,22.21778184138],[104.17899956828,22.2178693324],[104.17895611443,22.21795480404],[104.17895361645,22.21795938284],[104.17889470507,22.21806698423],[104.17886916649,22.2181105645],[104.17884104368,22.21815274291],[104.17881042513,22.21819338675],[104.17877740716,22.21823236814],[104.17874209367,22.21826956442],[104.17871745023,22.21829320169],[104.17851631642,22.218479073],[104.17851472942,22.2184805429],[104.17845960371,22.21853610152],[104.17840955918,22.21859568378],[104.17836493323,22.21865888795],[104.17832602674,22.21872528793],[104.17818921035,22.21891179269],[104.17790863077,22.21931700952],[104.17763258683,22.21967721536],[104.17758645678,22.21974014895],[104.17753268187,22.21982148321],[104.17748355237,22.21990532641],[104.17743920293,22.21999144873],[104.17701296794,22.22087795737],[104.17678582687,22.22144008231],[104.17674738425,22.22152761088],[104.17670402568,22.22161312488],[104.17665587241,22.22169638517],[104.1766030591,22.22177715889],[104.17658956696,22.22179634521],[104.17653925302,22.22187197063],[104.17648971058,22.22195560325],[104.17644493701,22.22204153537],[104.17640505502,22.22212953145],[104.17637017394,22.22221935033],[104.17634038939,22.2223107458],[104.17631578301,22.22240346737],[104.17619096062,22.22292293661],[104.17595046732,22.22336818482],[104.17578388759,22.22353227859],[104.17592461167,22.22366034911],[104.17605794417,22.22379510119],[104.17618351962,22.22393616553],[104.17630099382,22.22408315548],[104.17641004478,22.22423566818],[104.17651037358,22.22439328562],[104.1766017052,22.22455557578],[104.17668378928,22.22472209387],[104.17675640082,22.22489238348],[104.17681934075,22.22506597787],[104.17687243654,22.22524240124],[104.176892352,22.22531961688],[104.17731374723,22.22703911449],[104.17734732019,22.22716582967],[104.17740632851,22.22735297113],[104.17747577583,22.22753698081],[104.17755547184,22.22771735434],[104.17764519813,22.22789359732],[104.17774470879,22.22806522665],[104.1778537311,22.22823177191],[104.17797196627,22.22839277658],[104.17809909022,22.22854779934],[104.17823475454,22.22869641526],[104.17837858739,22.22883821699],[104.17853019453,22.22897281582],[104.17868916043,22.22909984281],[104.17885504936,22.22921894977],[104.17943010997,22.22960992091],[104.17951043188,22.2296677991],[104.1795871584,22.22972976142],[104.17964646479,22.22978277338],[104.18914866539,22.21441280152],[104.18898430212,22.21425667548],[104.18891648858,22.21419634344],[104.18872016295,22.21403369628],[104.18851496489,22.21388083899],[104.18830145681,22.21373819049],[104.1880802239,22.21360614176],[104.18441272106,22.2115417258],[104.18378250396,22.2111583399],[104.18317470274,22.21074476524],[104.18260276263,22.21031154553],[104.18453451084,22.20798515125],[104.18414714945,22.20766476173],[104.18409782316,22.20762335366],[104.18226591842,22.20610880957],[104.18079622321,22.20489218911],[104.18062596778,22.20475581473],[104.18034311681,22.20454805074],[104.18004897725,22.20435435563],[104.17974435528,22.20417526022],[104.17943008579,22.20401125536]]]
+            },
+            "properties": { "name": "Khu 200ha" }
+        }]
+    };
+
+    // 2. Dữ liệu Võ Lao 500ha (Đã cấu hình tô màu Đỏ)
+    const dataVoLao = {
+        "type": "FeatureCollection",
+        "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[104.19089147896,22.22270190098],[104.19022468845,22.22392714883],[104.19103021351,22.22389496707],[104.19146825344,22.2230693301],[104.1914679207,22.22307401131],[104.19146758624,22.22307869242],[104.19146725005,22.22308337342],[104.19146691214,22.22308805431],[104.19146657251,22.2230927351],[104.19146623116,22.22309741577],[104.19146588809,22.22310209634],[104.1914655433,22.22310677679],[104.19146519679,22.22311145714],[104.19146484856,22.22311613738],[104.1914644986,22.2231208175],[104.19146414693,22.22312549751],[104.19146379354,22.22313017741],[104.19146343842,22.2231348572],[104.19146308158,22.22313953687],[104.19146272303,22.22314421643],[104.19146236275,22.22314889588],[104.19146200075,22.22315357521],[104.19146163704,22.22315825442],[104.1914612716,22.22316293352],[104.19146090444,22.2231676125],[104.19146053556,22.22317229137],[104.19146016496,22.22317697012],[104.19145979264,22.22318164874],[104.1914594186,22.22318632725],[104.19145904284,22.22319100564],[104.19145866536,22.22319568391],[104.19145828616,22.22320036206],[104.19145790524,22.22320504009],[104.1914575226,22.223209718],[104.19145713824,22.22321439578],[104.19145675216,22.22321907344],[104.19145636436,22.22322375098],[104.19145597484,22.22322842839],[104.19145558361,22.22323310568],[104.19145519065,22.22323778285],[104.19145479597,22.22324245989],[104.19145439957,22.2232471368],[104.19145400145,22.22325181359],[104.19145360162,22.22325649024],[104.19145320006,22.22326116678],[104.19145279679,22.22326584318],[104.19145239179,22.22327051945],[104.19145198508,22.2232751956],[104.19145157664,22.22327987161],[104.19145116649,22.2232845475],[104.19145075462,22.22328922325],[104.19145034103,22.22329389887],[104.19134713493,22.22445819086],[104.19134370352,22.22449625393],[104.19134015817,22.22453430795],[104.19133649892,22.22457235262],[104.1913327258,22.22461038765],[104.19132883884,22.22464841274],[104.19132483806,22.2246864276],[104.1913207235,22.22472443193],[104.19131649519,22.22476242543],[104.19131215316,22.22480040781],[104.19130769744,22.22483837878],[104.19130312807,22.22487633803],[104.19129844509,22.22491428528],[104.19129364853,22.22495222024],[104.19128873843,22.22499014259],[104.19128371482,22.22502805206],[104.19127857775,22.22506594835],[104.19127332726,22.22510383115],[104.19126796338,22.22514170019],[104.19126248616,22.22517955516],[104.19125689564,22.22521739577],[104.19125119186,22.22525522172],[104.19124537487,22.22529303273],[104.19123944471,22.22533082849],[104.19123340143,22.22536860872],[104.19122724508,22.22540637312],[104.1912209757,22.2254441214],[104.19121459334,22.22548185326],[104.19120809805,22.22551956841],[104.19120148988,22.22555726656],[104.19119476889,22.22559494742],[104.19118793512,22.22563261069],[104.19118098863,22.22567025608],[104.19117392947,22.22570788329],[104.1911667577,22.22574549205],[104.19115947337,22.22578308204],[104.19115207654,22.22582065299],[104.19114456727,22.2258582046],[104.19113694561,22.22589573657],[104.19112921162,22.22593324862],[104.19112136537,22.22597074046],[104.19111340691,22.22600821179],[104.19110533631,22.22604566232],[104.19109715362,22.22608309176],[104.19108885892,22.22612049982],[104.19108045227,22.22615788622],[104.19107193372,22.22619525065],[104.19106330336,22.22623259283],[104.19105456124,22.22626991248],[104.19105357775,22.22627407992],[104.19105259286,22.22627824707],[104.19105160659,22.22628241394],[104.19105061892,22.22628658053],[104.19104962985,22.22629074682],[104.1910486394,22.22629491283],[104.19104764755,22.22629907856],[104.19104665431,22.22630324399],[104.19104565967,22.22630740914],[104.19104466364,22.226311574],[104.19104366622,22.22631573857],[104.19104266741,22.22631990285],[104.1910416672,22.22632406684],[104.1910406656,22.22632823054],[104.19103966261,22.22633239395],[104.19103865823,22.22633655707],[104.19103765245,22.2263407199],[104.19103664529,22.22634488243],[104.19103563673,22.22634904468],[104.19103462678,22.22635320663],[104.19103361543,22.22635736829],[104.1910326027,22.22636152965],[104.19103158857,22.22636569072],[104.19103057306,22.2263698515],[104.19102955615,22.22637401198],[104.19102853785,22.22637817217],[104.19102751815,22.22638233206],[104.19102649707,22.22638649166],[104.1910254746,22.22639065096],[104.19102445074,22.22639480996],[104.19102342548,22.22639896867],[104.19102239883,22.22640312708],[104.1910213708,22.22640728519],[104.19102034137,22.226411443],[104.19101931055,22.22641560051],[104.19101827835,22.22641975773],[104.19101724475,22.22642391465],[104.19101620976,22.22642807126],[104.19101517339,22.22643222758],[104.19101413562,22.22643638359],[104.19101309646,22.22644053931],[104.19101205591,22.22644469472],[104.19101101398,22.22644884983],[104.19100997065,22.22645300464],[104.19100892594,22.22645715915],[104.19100787983,22.22646131335],[104.19100683234,22.22646546725],[104.19100578346,22.22646962084],[104.19099681651,22.22632491635],[104.19046255677,22.22643967428],[104.19001175976,22.22864466046],[104.19003633322,22.22915367773],[104.18972328909,22.22989791165],[104.18972018321,22.22990528927],[104.18971707275,22.22991266522],[104.18971395771,22.22992003949],[104.18971083809,22.22992741209],[104.18970771388,22.229934783],[104.18970458511,22.22994215223],[104.18970145175,22.22994951978],[104.18969831382,22.22995688563],[104.18969517132,22.2299642498],[104.18969202424,22.22997161228],[104.18968887259,22.22997897305],[104.18968571637,22.22998633214],[104.18968255558,22.22999368952],[104.18967939023,22.23000104519],[104.1896762203,22.23000839917],[104.1896730458,22.23001575143],[104.18966986675,22.23002310199],[104.18966668312,22.23003045083],[104.18966349493,22.23003779796],[104.18966030218,22.23004514337],[104.18965710487,22.23005248706],[104.189653903,22.23005982902],[104.18965069657,22.23006716927],[104.18964748558,22.23007450778],[104.18964427003,22.23008184457],[104.18964104993,22.23008917962],[104.18963782527,22.23009651294],[104.18963459605,22.23010384452],[104.18963136229,22.23011117436],[104.18962812397,22.23011850246],[104.1896248811,22.23012582881],[104.18962163369,22.23013315342],[104.18961838172,22.23014047628],[104.18961512521,22.23014779739],[104.18961186414,22.23015511674],[104.18960859854,22.23016243434],[104.18960532839,22.23016975017],[104.1896020537,22.23017706425],[104.18959877446,22.23018437656],[104.18959549068,22.2301916871],[104.18959220237,22.23019899588],[104.18958890951,22.23020630288],[104.18958561212,22.23021360811],[104.18958231019,22.23022091156],[104.18957900373,22.23022821324],[104.18957569273,22.23023551313],[104.1895723772,22.23024281124],[104.18956905713,22.23025010757],[104.18868095491,22.23083929464],[104.18887247136,22.23157607318],[104.18887093036,22.23157864482],[104.18886938876,22.23158121617],[104.18886784657,22.2315837872],[104.18886630378,22.23158635792],[104.18886476041,22.23158892834],[104.18886321644,22.23159149844],[104.18886167187,22.23159406824],[104.18886012672,22.23159663773],[104.18885858097,22.23159920691],[104.18885703462,22.23160177578],[104.18885548769,22.23160434434],[104.18885394016,22.23160691259],[104.18885239204,22.23160948053],[104.18885084333,22.23161204817],[104.18884929402,22.23161461549],[104.18884774412,22.2316171825],[104.18884619363,22.2316197492],[104.18884464255,22.23162231559],[104.18884309087,22.23162488167],[104.1888415386,22.23162744744],[104.18883998574,22.2316300129],[104.18883843229,22.23163257805],[104.18883687824,22.23163514289],[104.18883532361,22.23163770742],[104.18883376838,22.23164027164],[104.18883221256,22.23164283554],[104.18883065615,22.23164539913],[104.18882909914,22.23164796242],[104.18882754155,22.23165052539],[104.18882598336,22.23165308805],[104.18882442458,22.23165565039],[104.18882286521,22.23165821243],[104.18882130525,22.23166077415],[104.1888197447,22.23166333557],[104.18881818355,22.23166589666],[104.18881662182,22.23166845745],[104.18881505949,22.23167101793],[104.18881349658,22.23167357809],[104.18881193307,22.23167613794],[104.18881036897,22.23167869747],[104.18880880428,22.2316812567],[104.188807239,22.23168381561],[104.18880567313,22.2316863742],[104.18880410667,22.23168893249],[104.18880253962,22.23169149046],[104.18880097198,22.23169404811],[104.18879940375,22.23169660546],[104.18879783492,22.23169916248],[104.18590681719,22.23640987891],[104.18571934016,22.23671534694],[104.18516084247,22.23762533268],[104.18495020868,22.23757152023],[104.1848675761,22.23754233284],[104.1847832225,22.23745849991],[104.18466804438,22.237372432],[104.18456498298,22.23737772368],[104.18449206972,22.23739237182],[104.18439139047,22.23741913438],[104.18424881635,22.23747350703],[104.18413325824,22.23741671091],[104.18403420392,22.2372904409],[104.18397995298,22.23719939696],[104.18388443405,22.2370697359],[104.18383891128,22.23700355844],[104.18378586681,22.23697447352],[104.18371947126,22.23696051471],[104.1835953588,22.23696974599],[104.18343563934,22.23702834477],[104.18328778782,22.23707876625],[104.18305712734,22.23714398122],[104.18292852213,22.23718480595],[104.18280031199,22.23721224321],[104.18279637785,22.23735774648],[104.18279291956,22.2374456995],[104.18283544848,22.23753254853],[104.18285732843,22.23759178001],[104.18290744595,22.23762500943],[104.18296650793,22.23762927949],[104.18303448019,22.23761307948],[104.18309953163,22.23759948835],[104.18316922254,22.23761418762],[104.18317631225,22.23770222213],[104.18309854897,22.23781966857],[104.1830821436,22.23787054803],[104.18302999571,22.23789269277],[104.18295861235,22.23790389446],[104.18292501418,22.23791199581],[104.18285286298,22.2379189382],[104.18275735432,22.2379425691],[104.18267566034,22.23796946839],[104.1825642093,22.2379901225],[104.18246051259,22.23796420198],[104.18237673967,22.23792771396],[104.18229497757,22.23780440195],[104.1822328991,22.23768199144],[104.18230877753,22.23750930654],[104.18230331205,22.23742114176],[104.18227251692,22.237311394],[104.18232305699,22.2371433169],[104.18234182406,22.23703599999],[104.1823710904,22.23687498336],[104.18243749488,22.23650122805],[104.18245390558,22.23640085701],[104.18246120267,22.23627391526],[104.18243267177,22.23620534507],[104.18237490034,22.23616983096],[104.18226140952,22.23611922063],[104.18216991019,22.23605188875],[104.18208838033,22.23596607742],[104.1820210133,22.23588040583],[104.18195950501,22.23578527179],[104.18187814742,22.23568085643],[104.18179248337,22.23563404583],[104.1816928876,22.23560199787],[104.18152361064,22.23555308866],[104.18135613978,22.23551339753],[104.1812286137,22.23545533173],[104.18113917912,22.23539774351],[104.18108381653,22.23525396863],[104.18106415567,22.23517397264],[104.18100464028,22.23509004406],[104.18097237093,22.23499292391],[104.18101373198,22.23485277007],[104.18111994646,22.23471456377],[104.18119402368,22.2346516036],[104.18121823213,22.23459027527],[104.18121856229,22.23450845263],[104.18118027218,22.23440321994],[104.18104967826,22.23433852458],[104.18087420959,22.2342858902],[104.18074857971,22.23426305284],[104.18063682067,22.2342645582],[104.18048079684,22.23429690914],[104.18035724362,22.23429274734],[104.18019605482,22.23420729126],[104.18006659028,22.23414921778],[104.18000079822,22.23413038268],[104.17993296869,22.23411163073],[104.17987044326,22.2340554452],[104.17983387855,22.23395495117],[104.17984219395,22.23386575085],[104.17986864306,22.23375421642],[104.17990897896,22.23363902781],[104.17997320767,22.23354063089],[104.18006583588,22.23339513197],[104.1800839796,22.23332724766],[104.18008037844,22.2332342124],[104.18005282456,22.23313919663],[104.1800311872,22.23306840553],[104.17997353817,22.23300308765],[104.17989412286,22.23292288207],[104.17979858977,22.2328463228],[104.1797230176,22.23277534257],[104.17967342027,22.23271005281],[104.17964497778,22.23263929979],[104.17962841737,22.23249224008],[104.1796087944,22.23242714573],[104.17955846177,22.23230994454],[104.17943605112,22.23220518207],[104.17930881411,22.2321006045],[104.17923132516,22.2320240179],[104.1791697447,22.23194757741],[104.17910170584,22.23180620888],[104.17907500477,22.231651469],[104.17906954722,22.23153792609],[104.17908796776,22.23142076415],[104.17911624404,22.23133714302],[104.17914657869,22.23127222395],[104.17923697274,22.23116876022],[104.17937220922,22.23114243398],[104.17953801659,22.23119538602],[104.17965376498,22.23119028283],[104.17974961377,22.23116451837],[104.17984051863,22.23105881664],[104.17987637689,22.23090639588],[104.17990490772,22.23078366984],[104.17991347884,22.23063116077],[104.17990397643,22.230510198],[104.17987262641,22.23037055412],[104.17980143336,22.23025007682],[104.17962871962,22.23023558382],[104.17946800676,22.23020557806],[104.1793546038,22.23015866892],[104.17923302228,22.230119227],[104.17905260963,22.23001933956],[104.17899216791,22.22997333856],[104.17883694498,22.22985737323],[104.17878132718,22.22979395864],[104.17867818945,22.22963175505],[104.1785889223,22.22949380407],[104.17846392162,22.22934082581],[104.17836856525,22.22922145785],[104.17825333157,22.22907610006],[104.1781958501,22.22899398388],[104.17810353921,22.22882470376],[104.17802902143,22.22879814007],[104.17795703698,22.22882389716],[104.17789710319,22.22884418749],[104.17768686782,22.22901829442],[104.17765281092,22.22904427512],[104.17744295232,22.2291254507],[104.17725909965,22.22918052674],[104.17715933522,22.22919137428],[104.17698181365,22.22916844164],[104.1768880567,22.22915709312],[104.17679425496,22.2291567626],[104.1766629921,22.22913688264],[104.17656932764,22.22903124723],[104.17652671947,22.22896543929],[104.17646088618,22.22888591215],[104.17642165512,22.22870532795],[104.17641190228,22.22859899487],[104.17639805108,22.22847476531],[104.17630064495,22.22835909178],[104.17623905297,22.22828626269],[104.17619564715,22.22817818525],[104.17617592969,22.22811299984],[104.17611758236,22.22800568249],[104.17616521983,22.22786273659],[104.17623145258,22.22779402865],[104.17627197697,22.22772815259],[104.17620982865,22.22760140451],[104.1760811979,22.22742563131],[104.17597902004,22.22742014434],[104.17588695507,22.22747003361],[104.17580900051,22.22750886411],[104.17571514693,22.22752153792],[104.17562936114,22.22750633336],[104.17554787681,22.22743533035],[104.17552434163,22.22733111606],[104.17551277594,22.22721755145],[104.17546715182,22.22715417105],[104.17541354507,22.22707396417],[104.17539612886,22.22696787489],[104.17539250031,22.22688233542],[104.17539881799,22.22680784929],[104.17542116455,22.22670379704],[104.1754518022,22.22660594722],[104.17565863654,22.22636794777],[104.17571624912,22.22620287789],[104.17575761812,22.22600099313],[104.17581512076,22.22588667887],[104.17586990158,22.22584523779],[104.17591586221,22.22575290676],[104.17590876331,22.22563964129],[104.17582797185,22.22550504486],[104.17576235297,22.22543375217],[104.17541467713,22.22496298587],[104.17542424918,22.22485157309],[104.17550510254,22.22479134873],[104.17583657754,22.22461556315],[104.17594335691,22.22440933519],[104.17600785456,22.22422062735],[104.17606210127,22.22409573482],[104.17609242475,22.22405283338],[104.17589297334,22.22379963299],[104.17569901954,22.22360831864],[104.17578139193,22.22353592699],[104.17576801812,22.22352447478],[104.17575458507,22.22351308282],[104.1757410931,22.22350175138],[104.17572754254,22.22349048072],[104.17571393369,22.22347927111],[104.17570026686,22.2234681228],[104.17568654239,22.22345703606],[104.17567276059,22.22344601114],[104.17565892178,22.2234350483],[104.17564502628,22.22342414781],[104.17563107442,22.2234133099],[104.17561706652,22.22340253483],[104.17560300292,22.22339182287],[104.17558888392,22.22338117424],[104.17557470988,22.22337058921],[104.17556048111,22.22336006802],[104.17554619795,22.22334961091],[104.17553186073,22.22333921813],[104.17551746979,22.22332888993],[104.17550302546,22.22331862653],[104.17548852807,22.22330842819],[104.17547397797,22.22329829513],[104.1754593755,22.2232882276],[104.17544472099,22.22327822583],[104.17543001479,22.22326829005],[104.17541525724,22.2232584205],[104.17540044868,22.22324861739],[104.17538558946,22.22323888098],[104.17537067992,22.22322921147],[104.17535572042,22.2232196091],[104.1753407113,22.22321007408],[104.17532565291,22.22320060665],[104.1753105456,22.22319120702],[104.17529538973,22.22318187541],[104.17528018565,22.22317261204],[104.1752649337,22.22316341713],[104.17524963426,22.22315429088],[104.17523428767,22.22314523351],[104.17521889429,22.22313624524],[104.17520345449,22.22312732627],[104.17518796861,22.22311847681],[104.17517243703,22.22310969707],[104.1751568601,22.22310098724],[104.17514123819,22.22309234755],[104.17512557166,22.22308377817],[104.17510986087,22.22307527933],[104.1750941062,22.2230668512],[104.17507830801,22.223058494],[104.1722551762,22.22157340665],[104.1726486662,22.22099391333],[104.17265574623,22.22098350867],[104.17266284774,22.22097311672],[104.17266997071,22.2209627375],[104.1726771151,22.22095237106],[104.1726842809,22.22094201743],[104.17269146808,22.22093167666],[104.1726986766,22.22092134877],[104.17270590645,22.22091103382],[104.17271315759,22.22090073183],[104.17272043001,22.22089044285],[104.17272772366,22.22088016692],[104.17273503853,22.22086990406],[104.17274237459,22.22085965433],[104.17274973181,22.22084941775],[104.17275711017,22.22083919437],[104.17276450963,22.22082898422],[104.17277193017,22.22081878734],[104.17277937176,22.22080860377],[104.17278683438,22.22079843355],[104.17279431799,22.22078827671],[104.17280182257,22.2207781333],[104.1728093481,22.22076800334],[104.17281689453,22.22075788688],[104.17282446185,22.22074778396],[104.17283205003,22.2207376946],[104.17283965904,22.22072761886],[104.17284728885,22.22071755676],[104.17285493944,22.22070750834],[104.17286261076,22.22069747365],[104.17287030281,22.22068745271],[104.17287801554,22.22067744557],[104.17288574893,22.22066745226],[104.17289350295,22.22065747282],[104.17290127758,22.22064750728],[104.17290907278,22.22063755569],[104.17291688852,22.22062761807],[104.17292472477,22.22061769448],[104.17293258152,22.22060778493],[104.17294045872,22.22059788948],[104.17294835635,22.22058800815],[104.17295627437,22.22057814098],[104.17296421277,22.22056828801],[104.17297217151,22.22055844928],[104.17298015056,22.22054862482],[104.17298814989,22.22053881467],[104.17299616947,22.22052901887],[104.17300420927,22.22051923744],[104.17301226927,22.22050947043],[104.17396936147,22.21935197071],[104.17398150324,22.21933722255],[104.17399357852,22.21932242715],[104.17400558711,22.21930758477],[104.17401752879,22.21929269566],[104.17402940335,22.21927776008],[104.17404121058,22.2192627783],[104.17405295028,22.21924775058],[104.17406462223,22.21923267719],[104.17407622624,22.21921755839],[104.1740877621,22.21920239444],[104.1740992296,22.21918718561],[104.17411062855,22.21917193217],[104.17412195875,22.21915663439],[104.17413321999,22.21914129253],[104.17414441209,22.21912590687],[104.17415553483,22.21911047767],[104.17416658803,22.21909500521],[104.1741775715,22.21907948976],[104.17418848504,22.21906393158],[104.17419932845,22.21904833096],[104.17421010155,22.21903268817],[104.17422080416,22.21901700347],[104.17423143607,22.21900127716],[104.17424199711,22.2189855095],[104.17425248708,22.21896970076],[104.17426290581,22.21895385124],[104.17427325312,22.2189379612],[104.17428352881,22.21892203093],[104.17429373271,22.2189060607],[104.17430386465,22.2188900508],[104.17431392443,22.21887400151],[104.17432391189,22.2188579131],[104.17433382686,22.21884178587],[104.17434366914,22.21882562009],[104.17435343859,22.21880941605],[104.17436313501,22.21879317403],[104.17437275825,22.21877689432],[104.17438230813,22.2187605772],[104.17439178448,22.21874422296],[104.17440118715,22.21872783189],[104.17441051595,22.21871140428],[104.17441977074,22.21869494041],[104.17442895134,22.21867844058],[104.1744380576,22.21866190507],[104.17444708936,22.21864533417],[104.17445604645,22.21862872817],[104.17446492873,22.21861208738],[104.17447373603,22.21859541207],[104.17575736515,22.21615208765],[104.1757685308,22.21613116305],[104.17577997378,22.21611036875],[104.17579169232,22.21608970793],[104.17580368462,22.21606918375],[104.17581594885,22.21604879936],[104.17582848314,22.21602855789],[104.17584128555,22.21600846243],[104.17585435413,22.21598851607],[104.17586768688,22.21596872186],[104.17588128175,22.21594908283],[104.17589513665,22.21592960199],[104.17590924948,22.21591028234],[104.17592361805,22.21589112682],[104.17593824018,22.21587213837],[104.17595311362,22.21585331991],[104.17596823609,22.21583467431],[104.17598360528,22.21581620444],[104.17599921882,22.21579791312],[104.17601507433,22.21577980315],[104.17603116938,22.21576187732],[104.17604750151,22.21574413836],[104.1760640682,22.215726589],[104.17608086692,22.21570923193],[104.17609789509,22.2156920698],[104.17611515012,22.21567510524],[104.17613262934,22.21565834086],[104.17615033009,22.21564177922],[104.17616824966,22.21562542286],[104.17618638529,22.21560927428],[104.1762047342,22.21559333597],[104.1762232936,22.21557761035],[104.17624206062,22.21556209985],[104.1762610324,22.21554680684],[104.17628020603,22.21553173366],[104.17629957858,22.21551688262],[104.17631914706,22.215502256],[104.17633890849,22.21548785604],[104.17635885984,22.21547368494],[104.17637899805,22.21545974488],[104.17639932003,22.21544603799],[104.17641982267,22.21543256637],[104.17644050283,22.21541933209],[104.17646135734,22.21540633718],[104.176482383,22.21539358361],[104.1765035766,22.21538107336],[104.17652493488,22.21536880834],[104.17654645457,22.21535679042],[104.17656813238,22.21534502145],[104.17801962169,22.21456815938],[104.17803166945,22.2145616666],[104.17804367547,22.21455510714],[104.17805563933,22.21454848122],[104.17806756059,22.21454178908],[104.17807943885,22.21453503096],[104.17809127367,22.21452820709],[104.17810306463,22.21452131772],[104.17811481133,22.21451436309],[104.17812651333,22.21450734344],[104.17813817024,22.21450025904],[104.17814978162,22.21449311013],[104.17816134708,22.21448589695],[104.1781728662,22.21447861978],[104.17818433858,22.21447127886],[104.1781957638,22.21446387446],[104.17820714146,22.21445640684],[104.17821847115,22.21444887626],[104.17822975249,22.214441283],[104.17824098506,22.21443362731],[104.17825216847,22.21442590947],[104.17826330231,22.21441812976],[104.17827438621,22.21441028846],[104.17828541976,22.21440238583],[104.17829640256,22.21439442216],[104.17830733424,22.21438639773],[104.17831821441,22.21437831283],[104.17832904267,22.21437016775],[104.17833981865,22.21436196277],[104.17835054196,22.21435369818],[104.17836121222,22.21434537427],[104.17837182906,22.21433699135],[104.17838239209,22.21432854971],[104.17839290095,22.21432004964],[104.17840335526,22.21431149146],[104.17841375464,22.21430287546],[104.17842409874,22.21429420194],[104.17843438718,22.21428547123],[104.17844461959,22.21427668362],[104.17845479563,22.21426783942],[104.17846491492,22.21425893896],[104.1784749771,22.21424998255],[104.17848498183,22.2142409705],[104.17849492874,22.21423190313],[104.17850481748,22.21422278077],[104.1785146477,22.21421360374],[104.17852441905,22.21420437237],[104.17853413119,22.21419508697],[104.17854378377,22.21418574789],[104.17814807058,22.21382316363],[104.17814173181,22.21381740937],[104.17813533575,22.21381171032],[104.17812888297,22.21380606699],[104.17812237403,22.21380047986],[104.17811580948,22.21379494942],[104.1781091899,22.21378947614],[104.17810251586,22.21378406051],[104.17809578794,22.21377870299],[104.17808900673,22.21377340404],[104.17808217282,22.21376816413],[104.17807528679,22.21376298371],[104.17806834924,22.21375786323],[104.17806136077,22.21375280313],[104.178054322,22.21374780386],[104.17804723353,22.21374286584],[104.17804009598,22.2137379895],[104.17803290996,22.21373317528],[104.1780256761,22.21372842358],[104.17801839503,22.21372373481],[104.17801106737,22.21371910939],[104.17800369377,22.21371454772],[104.17799627487,22.21371005019],[104.1779888113,22.21370561719],[104.17798130371,22.2137012491],[104.17797375276,22.21369694631],[104.1779661591,22.21369270918],[104.17795852339,22.21368853809],[104.17795084629,22.2136844334],[104.17794312846,22.21368039546],[104.17793537059,22.21367642462],[104.17792757333,22.21367252124],[104.17791973737,22.21366868563],[104.17791186339,22.21366491815],[104.17790395206,22.21366121911],[104.17789600408,22.21365758884],[104.17788802013,22.21365402765],[104.17788000091,22.21365053585],[104.17787194711,22.21364711375],[104.17786385943,22.21364376163],[104.17785573858,22.2136404798],[104.17784758525,22.21363726853],[104.17783940016,22.2136341281],[104.17783118401,22.21363105879],[104.17782293751,22.21362806087],[104.17781466139,22.21362513458],[104.17780635636,22.2136222802],[104.17779802314,22.21361949796],[104.17778966245,22.2136167881],[104.17777571352,22.2136119421],[104.17776173265,22.21360717658],[104.17774772036,22.21360249173],[104.17773367721,22.21359788771],[104.17771960372,22.21359336472],[104.17770550043,22.21358892292],[104.17769136789,22.21358456249],[104.17767720664,22.21358028358],[104.17766301721,22.21357608637],[104.17764880016,22.21357197101],[104.17763455603,22.21356793766],[104.17762028536,22.21356398649],[104.1776059887,22.21356011763],[104.1775916666,22.21355633123],[104.1775773196,22.21355262745],[104.17756294826,22.21354900642],[104.17754855313,22.21354546828],[104.17753413475,22.21354201317],[104.17751969369,22.21353864123],[104.17750523048,22.21353535257],[104.1774907457,22.21353214732],[104.17747623988,22.21352902561],[104.1774617136,22.21352598756],[104.1774471674,22.21352303329],[104.17743260184,22.2135201629],[104.17741801748,22.21351737651],[104.17740341488,22.21351467422],[104.17738879459,22.21351205614],[104.17737415718,22.21350952237],[104.17735950322,22.213507073],[104.17734483325,22.21350470813],[104.17733014784,22.21350242785],[104.17731544756,22.21350023224],[104.17730073296,22.2134981214],[104.17728600462,22.2134960954],[104.17727126309,22.21349415431],[104.17725650894,22.21349229822],[104.17724174274,22.2134905272],[104.17722696505,22.2134888413],[104.17721217643,22.2134872406],[104.17719737746,22.21348572517],[104.1771825687,22.21348429504],[104.17716775071,22.21348295029],[104.17715292407,22.21348169096],[104.17713808935,22.2134805171],[104.1771232471,22.21347942876],[104.17710839791,22.21347842598],[104.17709354233,22.21347750879],[104.17690327495,22.21352112541],[104.17649750611,22.21363287044],[104.1758589992,22.2137414149],[104.17546772574,22.21379210367],[104.17491208875,22.21383676223],[104.17454492424,22.21385560852],[104.17395013341,22.21386961966],[104.17293661647,22.21388350195],[104.17220825381,22.21388793109],[104.17168805375,22.21393416372],[104.17181060027,22.21375295268],[104.1717400296,22.21322397987],[104.17167963594,22.21277128752],[104.17139282153,22.21062137785],[104.17123340557,22.21043646873],[104.16800637448,22.20936834444],[104.16801741437,22.20934286954],[104.16802835481,22.20931735747],[104.16803919567,22.20929180856],[104.16804993681,22.20926622316],[104.16806057807,22.20924060161],[104.16807111932,22.20921494423],[104.16808156043,22.20918925138],[104.16809190125,22.20916352338],[104.16810214164,22.20913776058],[104.16811228148,22.20911196331],[104.16812232063,22.20908613193],[104.16813225895,22.20906026676],[104.16814209632,22.20903436815],[104.1681518326,22.20900843644],[104.16816146767,22.20898247198],[104.16817100141,22.2089564751],[104.16818043367,22.20893044614],[104.16818976435,22.20890438547],[104.16819899331,22.2088782934],[104.16820812044,22.2088521703],[104.16821714561,22.2088260165],[104.16822606871,22.20879983235],[104.16823488961,22.2087736182],[104.16824360821,22.20874737438],[104.16825222439,22.20872110126],[104.16826073803,22.20869479916],[104.16826914902,22.20866846845],[104.16827745725,22.20864210947],[104.16828566261,22.20861572256],[104.16829376499,22.20858930807],[104.16830176429,22.20856286636],[104.1683096604,22.20853639777],[104.16831745321,22.20850990265],[104.16832514263,22.20848338134],[104.16833272855,22.20845683421],[104.16834021087,22.2084302616],[104.1683475895,22.20840366385],[104.16835486433,22.20837704133],[104.16836203527,22.20835039438],[104.16836910223,22.20832372335],[104.16837606511,22.2082970286],[104.16838292382,22.20827031048],[104.16838967827,22.20824356934],[104.16839632838,22.20821680553],[104.16840287404,22.2081900194],[104.16840931518,22.20816321132],[104.16841565172,22.20813638163],[104.16842188356,22.20810953068],[104.16930308982,22.20427891479],[104.16932843833,22.20427448466],[104.16935376068,22.20426992662],[104.16937905611,22.20426524081],[104.16940432389,22.20426042736],[104.16942956327,22.20425548641],[104.16945477352,22.20425041812],[104.16947995388,22.20424522262],[104.16950510362,22.20423990007],[104.169530222,22.20423445063],[104.16955530828,22.20422887445],[104.16958036173,22.20422317171],[104.16960538161,22.20421734256],[104.16963036717,22.20421138719],[104.1696553177,22.20420530576],[104.16968023245,22.20419909846],[104.16970511069,22.20419276546],[104.1697299517,22.20418630696],[104.16975475473,22.20417972313],[104.16977951907,22.20417301419],[104.16980424398,22.20416618032],[104.16982892873,22.20415922172],[104.16985357261,22.2041521386],[104.16987817488,22.20414493116],[104.16990273483,22.20413759963],[104.16992725173,22.20413014421],[104.16995172486,22.20412256512],[104.1699761535,22.20411486259],[104.17000053694,22.20410703685],[104.17002487445,22.20409908811],[104.17004916532,22.20409101662],[104.17007340884,22.20408282262],[104.1700976043,22.20407450634],[104.17012175098,22.20406606803],[104.17014584817,22.20405750793],[104.17016989517,22.20404882631],[104.17019389126,22.20404002341],[104.17021783575,22.20403109949],[104.17024172793,22.20402205481],[104.17026556709,22.20401288965],[104.17028935255,22.20400360427],[104.17031308358,22.20399419894],[104.17033675951,22.20398467394],[104.17036037963,22.20397502955],[104.17038394325,22.20396526605],[104.17040744968,22.20395538373],[104.17043089822,22.20394538289],[104.17045428819,22.20393526381],[104.1704776189,22.20392502679],[104.17250618971,22.20302864859],[104.17256951456,22.20300123021],[104.17263329302,22.2029747392],[104.1726975094,22.20294918207],[104.17276214795,22.20292456509],[104.17282719278,22.20290089431],[104.17289262794,22.20287817555],[104.17295843736,22.20285641437],[104.17302460486,22.20283561613],[104.17309111421,22.20281578592],[104.17315794908,22.20279692863],[104.17322509305,22.20277904888],[104.17329252964,22.20276215105],[104.17336024228,22.20274623931],[104.17342821436,22.20273131755],[104.17349642918,22.20271738944],[104.17356486999,22.20270445841],[104.17363351998,22.20269252762],[104.17370236231,22.2026816],[104.17377138006,22.20267167824],[104.17384055629,22.20266276478],[104.17390987401,22.2026548618],[104.17397931621,22.20264797124],[104.17404886582,22.2026420948],[104.17411850578,22.20263723392],[104.17418821899,22.20263338979],[104.17425798832,22.20263056336],[104.17432779664,22.20262875532],[104.17439762682,22.20262796611],[104.17446746171,22.20262819593],[104.17453728415,22.20262944472],[104.17460707701,22.20263171218],[104.17467682315,22.20263499775],[104.17474650544,22.20263930062],[104.17481610678,22.20264461973],[104.17488561006,22.20265095378],[104.17495499823,22.20265830122],[104.17502425425,22.20266666024],[104.17509336112,22.20267602878],[104.17516230185,22.20268640455],[104.17523105953,22.202697785],[104.17529961728,22.20271016734],[104.17536795825,22.20272354852],[104.17543606567,22.20273792526],[104.17550392281,22.20275329402],[104.17557151302,22.20276965105],[104.17563881969,22.20278699231],[104.1757058263,22.20280531355],[104.17577251639,22.20282461027],[104.17831495883,22.20358063102],[104.17837191179,22.2035978206],[104.17842870201,22.20361547094],[104.17848532517,22.2036335807],[104.178541777,22.2036521485],[104.17859805323,22.20367117295],[104.17865414959,22.20369065259],[104.17871006184,22.20371058597],[104.17876578574,22.20373097156],[104.17882131708,22.20375180783],[104.17887665166,22.20377309319],[104.17893178528,22.20379482605],[104.17898671377,22.20381700474],[104.17904143298,22.2038396276],[104.17909593877,22.20386269291],[104.179150227,22.20388619893],[104.17920429357,22.20391014388],[104.17925813439,22.20393452593],[104.17931174538,22.20395934326],[104.17936512248,22.20398459397],[104.17941826165,22.20401027617],[104.17947115887,22.2040363879],[104.17952381015,22.20406292719],[104.17957621148,22.20408989202],[104.1796283589,22.20411728037],[104.17968024848,22.20414509015],[104.17973187627,22.20417331927],[104.17978323838,22.20420196557],[104.17983433091,22.20423102691],[104.17988514999,22.20426050107],[104.17993569179,22.20429038582],[104.17998595247,22.20432067891],[104.18003592823,22.20435137804],[104.18008561529,22.20438248088],[104.18013500988,22.20441398509],[104.18018410827,22.20444588828],[104.18023290674,22.20447818803],[104.18028140159,22.20451088189],[104.18032958916,22.2045439674],[104.1803774658,22.20457744205],[104.18042502788,22.20461130331],[104.18047227181,22.20464554861],[104.180519194,22.20468017536],[104.18056579091,22.20471518093],[104.18061205901,22.20475056269],[104.18065799479,22.20478631795],[104.18070359478,22.20482244401],[104.18074885553,22.20485893812],[104.1807937736,22.20489579754],[104.18226346883,22.20611241802],[104.18453130198,22.20798967415],[104.18260031297,22.21031515398],[104.1826358461,22.21034341587],[104.18267147769,22.21037157006],[104.18270720737,22.21039961627],[104.18274303477,22.2104275542],[104.1827789595,22.21045538354],[104.1828149812,22.21048310402],[104.18285109947,22.21051071534],[104.18288731393,22.21053821719],[104.18292362421,22.2105656093],[104.18296002992,22.21059289138],[104.18299653067,22.21062006313],[104.18303312609,22.21064712427],[104.18306981577,22.21067407451],[104.18310659934,22.21070091357],[104.18314347641,22.21072764116],[104.18318044658,22.21075425701],[104.18321750947,22.21078076083],[104.18325466469,22.21080715234],[104.18329191184,22.21083343126],[104.18332925052,22.21085959731],[104.18336668036,22.21088565023],[104.18340420094,22.21091158972],[104.18344181187,22.21093741553],[104.18347951276,22.21096312737],[104.1835173032,22.21098872497],[104.18355518281,22.21101420807],[104.18359315117,22.2110395764],[104.18363120789,22.21106482968],[104.18366935257,22.21108996765],[104.18370758479,22.21111499004],[104.18374590417,22.21113989659],[104.18378431028,22.21116468704],[104.18382280274,22.21118936113],[104.18386138112,22.21121391859],[104.18390004503,22.21123835916],[104.18393879406,22.2112626826],[104.18397762779,22.21128688863],[104.18401654581,22.211310977],[104.18405554772,22.21133494746],[104.1840946331,22.21135879976],[104.18413380154,22.21138253365],[104.18417305263,22.21140614886],[104.18421238595,22.21142964516],[104.18425180108,22.2114530223],[104.18429129761,22.21147628002],[104.18433087512,22.21149941809],[104.1843705332,22.21152243626],[104.18441027142,22.21154533428],[104.18807777432,22.21360975028]]]
+            },
+            "properties": { "name": "Võ Lao - Phần 2" }
+        }
+        ]
+    };
+
+    // Hàm tạo và add Layer vào bản đồ
+    // Layer 200ha (Màu Vàng)
+    var poly200ha = L.geoJSON(data200ha, {
+        style: function (feature) {
+            return {
+                color: '#eab308',   // Màu viền (vàng)
+                weight: 3,          // Độ dày đường vẽ
+                fillColor: '#fef08a', // Màu tô nền
+                fillOpacity: 0.15,  // Độ mờ nền (0 đến 1)
+                dashArray: '8, 5'   // Nét đứt
+            };
+        },
+        onEachFeature: function (feature, layer) {
+            if (feature.properties && feature.properties.name) {
+                layer.bindPopup('📍 <b>' + feature.properties.name + '</b>');
             }
         }
+    }).addTo(map);
 
-        stopTimer(); // Dừng đồng hồ lại
-
-        let score = 0;
-        for (let i = 0; i < currentQuestions.length; i++) {
-            if (userAnswers[i] === currentQuestions[i].correct) score++;
+    // Layer Võ Lao (Màu Đỏ)
+    var polyVoLao = L.geoJSON(dataVoLao, {
+        style: function (feature) {
+            return {
+                color: '#ef4444',   // Màu viền (đỏ)
+                weight: 3,
+                fillColor: '#fca5a5', 
+                fillOpacity: 0.15,
+                dashArray: '8, 5'
+            };
+        },
+        onEachFeature: function (feature, layer) {
+            if (feature.properties && feature.properties.name) {
+                layer.bindPopup('📍 <b>' + feature.properties.name + '</b>');
+            }
         }
-        showResult(score);
+    }).addTo(map);
+
+    // Lưu ý: Các layer này được add trực tiếp vào 'map' chứ không qua 'drawnItems' 
+    // nên chúng sẽ là các lớp nền cố định, không bị ẩn đi khi bạn dùng chức năng lọc Trạm điện.
+
+    // ==========================================
+    // NHẬP XUẤT EXCEL
+    // ==========================================
+    function parseCoordStr(str) {
+        if (!str) return null; let s = str.toString().replace(/,/g, '.').trim(); let val = parseFloat(s); if (isNaN(val)) return null;
+        if (val > 1000) { let sNum = val.toString().replace('.', ''); if (sNum.startsWith('10')) return parseFloat(sNum.substring(0, 3) + '.' + sNum.substring(3)); else return parseFloat(sNum.substring(0, 2) + '.' + sNum.substring(2)); }
+        return val;
     }
 
-    function showResult(score) {
-        quizUI.classList.add('hidden');
-        resultUI.classList.remove('hidden');
-        
-        document.getElementById('final-score').innerText = `${score} / ${currentQuestions.length}`;
-        
-        const percentage = (score / currentQuestions.length) * 100;
-        const feedback = document.getElementById('feedback');
-        if (percentage >= 80) feedback.innerText = "Tuyệt vời! Bạn đã nắm rất vững kiến thức.";
-        else if (percentage >= 50) feedback.innerText = "Khá tốt! Chú ý xem lại những câu làm sai bên dưới nhé.";
-        else feedback.innerText = "Cần cố gắng hơn! Hãy đọc kỹ đáp án đúng bên dưới.";
+    function importFromExcel(event) {
+        let file = event.target.files[0]; if (!file) return; let reader = new FileReader();
+        reader.onload = function(e) {
+            let data = new Uint8Array(e.target.result); let workbook = XLSX.read(data, {type: 'array'});
+            let json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]); let count = 0;
+            json.forEach(row => {
+                let getVal = (kws) => { let key = Object.keys(row).find(k => kws.some(kw => k.toLowerCase().includes(kw))); return key ? row[key] : null; };
+                
+                let ten = getVal(['tên', 'name']) || ''; 
+                let rawLat = getVal(['lat', 'vĩ', 'y']); 
+                let rawLong = getVal(['long', 'lng', 'kinh', 'x']); 
+                let chucNang = getVal(['chức', 'loại', 'type']) || ''; 
+                let dAnh = getVal(['ảnh', 'image', 'img', 'link', 'hinh']) || '';
+                
+                let maLienKet = getVal(['mã', 'ma', 'liên kết', 'id']) || generateId(); 
+                let tenTram = getVal(['trạm', 'tram', 'station']) || '';
 
-        const reviewList = document.getElementById('review-list');
-        reviewList.innerHTML = '';
+                if (rawLong && rawLat) {
+                    let c1 = parseCoordStr(rawLong); let c2 = parseCoordStr(rawLat);
+                    let realLat = (c1 > 10 && c1 < 25) ? c1 : ((c2 > 10 && c2 < 25) ? c2 : null);
+                    let realLng = (c1 > 100 && c1 < 110) ? c1 : ((c2 > 100 && c2 < 110) ? c2 : null);
 
-        currentQuestions.forEach((q, index) => {
-            const userAnsKey = userAnswers[index];
-            const correctKey = q.correct;
-            const isCorrect = (userAnsKey === correctKey);
-            
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            
-            let html = `<div class="q-text">Câu ${index + 1}: ${q.q}</div>`;
-            
-            if (userAnsKey) {
-                if (isCorrect) {
-                    html += `<div class="ans-box ans-correct">✔ Bạn chọn: ${q[userAnsKey]} (Đúng)</div>`;
-                } else {
-                    html += `<div class="ans-box ans-wrong">✘ Bạn chọn: ${q[userAnsKey]} (Sai)</div>`;
-                    html += `<div class="ans-box ans-correct" style="margin-top:5px;">✔ Đáp án đúng: ${q[correctKey]}</div>`;
+                    if (realLat && realLng) {
+                        let type = 'ctt'; let title = 'Cột trung thế'; let cLow = chucNang.toString().toLowerCase();
+                        if (cLow.includes('trạm') || cLow.includes('tba')) { type = 'tba'; title = 'Trạm biến áp'; } else if (cLow.includes('hạ')) { type = 'cht'; title = 'Cột hạ thế'; }
+                        
+                        let marker = L.marker([realLat, realLng], { icon: getCustomIcon(type, ten) }).addTo(drawnItems);
+                        marker.options.customData = { type: type, title: title }; 
+                        marker.options.metadata = { name: ten || 'Trạm/Cột mới', info: chucNang, img: dAnh, tram: tenTram, maLienKet: maLienKet };
+                        updatePopupContent(marker); count++;
+                    }
                 }
-            } else {
-                html += `<div class="ans-box ans-missing">⚠ Bạn chưa chọn đáp án</div>`;
-                html += `<div class="ans-box ans-correct" style="margin-top:5px;">✔ Đáp án đúng: ${q[correctKey]}</div>`;
+            });
+            if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
+            
+            updateStationFilterUI();
+            autoSaveToCloud(true, `Đã nạp thành công ${count} thiết bị từ Excel và đồng bộ lên Firebase!`);
+        };
+        reader.readAsArrayBuffer(file); event.target.value = ''; 
+    }
+
+    function exportToExcel() {
+        if (drawnItems.getLayers().length === 0) { 
+            alert("Không có dữ liệu nào đang hiển thị để xuất! Hãy bật hiển thị ít nhất 1 Trạm ở thanh menu bên trái."); 
+            return; 
+        }
+        let excelData = [];
+        
+        const processExcel = function(layer) {
+            let meta = layer.options.metadata || {}; 
+            let custom = layer.options.customData || {};
+            let lat = '', lng = '';
+            
+            if (layer instanceof L.Marker) {
+                lat = layer.getLatLng().lat.toFixed(8); 
+                lng = layer.getLatLng().lng.toFixed(8);
+            } else if (layer instanceof L.Polyline && layer.getLatLngs) {
+                let pts = layer.getLatLngs();
+                if(pts.length > 0 && !Array.isArray(pts[0])) { 
+                    lat = pts[0].lat.toFixed(8); 
+                    lng = pts[0].lng.toFixed(8); 
+                } 
+                else if (pts.length > 0 && Array.isArray(pts[0]) && pts[0].length > 0) { 
+                    lat = pts[0][0].lat.toFixed(8); 
+                    lng = pts[0][0].lng.toFixed(8); 
+                }
             }
 
-            div.innerHTML = html;
-            reviewList.appendChild(div);
-        });
+            excelData.push({
+                "tên": meta.name || '',
+                "lat": lat,
+                "long": lng,
+                "chức năng": meta.info || custom.title || '',
+                "link": meta.img || '',
+                "mã liên kết": meta.maLienKet || '',
+                "trạm": meta.tram || ''
+            });
+        };
+
+        drawnItems.eachLayer(processExcel);
+
+        try {
+            let ws = XLSX.utils.json_to_sheet(excelData);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            XLSX.writeFile(wb, "DuLieu_DienLuc_Xuat.xlsx");
+        } catch(err) { 
+            alert("Có lỗi khi xuất file Excel: " + err.message); 
+        }
     }
 </script>
 </body>
