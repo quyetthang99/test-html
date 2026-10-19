@@ -1451,6 +1451,10 @@
             if (drawnItems.getLayers().length > 0) map.fitBounds(drawnItems.getBounds(), {padding: [50, 50]});
             
             updateStationFilterUI();
+            if (typeof loadDz35kVFromCloud === "function") {
+                loadDz35kVFromCloud();
+            }
+            
         })
         .catch(err => {
             hint.style.display = 'none';
@@ -1547,10 +1551,7 @@
     }
 
     // Tự động tải cả 2 Database khi mở trang
-    window.onload = function() {
-        autoLoadFromCloud();   // Tải database mặc định
-        loadDz35kVFromCloud(); // Tải thêm database 35kV
-    };
+    window.onload = autoLoadFromCloud;
     // ==========================================
     // VẼ LỚP NỀN KHOANH VÙNG (KHÔNG BỊ ẢNH HƯỞNG BỞI LỌC TRẠM)
     // ==========================================
