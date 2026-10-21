@@ -1515,14 +1515,19 @@
             
             L.geoJSON(res, {
                 pointToLayer: function(feature, latlng) {
-                    let custom = feature.properties.customData || {}; 
-                    let type = custom.type || 'tba'; 
                     let meta = feature.properties.metadata || {}; 
-                    return L.marker(latlng, { icon: getCustomIcon(type, meta.name || '') });
+                    
+                    // 1. CHỈNH SỬA: Ép tất cả các điểm của ĐZ 35kV thành 'ctt' (Cột trung thế = Hình tròn màu vàng)
+                    let type = 'ctt'; 
+                    
+                    // 2. CHỈNH SỬA: Lấy tên/số hiệu của cột (lưu ở meta.name) để hiển thị ra bản đồ
+                    let labelText = meta.name || '';
+                    
+                    return L.marker(latlng, { icon: getCustomIcon(type, labelText) });
                 },
                 style: function(feature) {
                     let custom = feature.properties.customData || {}; 
-                    // Mặc định màu vàng (#eab308) nếu dữ liệu không có màu
+                    // Mặc định màu vàng (#eab308) cho các đường dây thuộc ĐZ 35kV
                     let style = { weight: 4, color: custom.color || '#eab308' }; 
                     if(custom.dash) style.dashArray = custom.dash; 
                     return style;
@@ -1533,7 +1538,13 @@
                     // CỐ ĐỊNH TÊN TRẠM LÀ "ĐZ 35kV" ĐỂ ĐƯA VÀO BỘ LỌC
                     layer.options.metadata.tram = 'ĐZ 35kV'; 
                     
-                    layer.options.customData = feature.properties.customData || { type: 'dz35', title: 'Đường dây 35kV' };
+                    // Xử lý để công cụ nhận diện đúng loại đối tượng
+                    if (layer instanceof L.Marker) {
+                        layer.options.customData = { type: 'ctt', title: 'Cột trung thế' };
+                    } else {
+                        layer.options.customData = feature.properties.customData || { type: 'dz35', title: 'Đường dây 35kV' };
+                    }
+                    
                     if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
                     
                     // Thêm vào layer vẽ chính để tương tác và lọc được
@@ -1549,7 +1560,6 @@
             console.error("Lỗi tải dữ liệu ĐZ 35kV:", err);
         });
     }
-
     // Tự động tải cả 2 Database khi mở trang
     window.onload = autoLoadFromCloud;
     // ==========================================
