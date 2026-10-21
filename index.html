@@ -1505,7 +1505,6 @@
     // TẢI THÊM DATABASE ĐZ 35kV VÀO BỘ LỌC
     // ==========================================
     function loadDz35kVFromCloud() {
-        // Lưu ý: Phải thêm .json vào cuối link URL của Firebase Realtime Database
         const FIREBASE_35KV_URL = 'https://bacha-d8448-default-rtdb.asia-southeast1.firebasedatabase.app/vanban.json';
         
         fetch(FIREBASE_35KV_URL)
@@ -1516,29 +1515,35 @@
             L.geoJSON(res, {
                 pointToLayer: function(feature, latlng) {
                     let meta = feature.properties.metadata || {}; 
-                    
-                    // 1. CHỈNH SỬA: Ép tất cả các điểm của ĐZ 35kV thành 'ctt' (Cột trung thế = Hình tròn màu vàng)
                     let type = 'ctt'; 
                     
-                    // 2. CHỈNH SỬA: Lấy tên/số hiệu của cột (lưu ở meta.name) để hiển thị ra bản đồ
-                    let labelText = meta.name || '';
+                    // LẤY DỮ LIỆU: Ưu tiên lấy trường 'soHieu' từ database
+                    let labelText = feature.properties.soHieu || meta.name || '';
                     
                     return L.marker(latlng, { icon: getCustomIcon(type, labelText) });
                 },
                 style: function(feature) {
                     let custom = feature.properties.customData || {}; 
-                    // Mặc định màu vàng (#eab308) cho các đường dây thuộc ĐZ 35kV
                     let style = { weight: 4, color: custom.color || '#eab308' }; 
                     if(custom.dash) style.dashArray = custom.dash; 
                     return style;
                 },
                 onEachFeature: function (feature, layer) {
-                    layer.options.metadata = feature.properties.metadata || {}; 
+                    let meta = feature.properties.metadata || {}; 
                     
-                    // CỐ ĐỊNH TÊN TRẠM LÀ "ĐZ 35kV" ĐỂ ĐƯA VÀO BỘ LỌC
-                    layer.options.metadata.tram = 'ĐZ 35kV'; 
+                    // GÁN DỮ LIỆU VÀO FORM: Đưa soHieu vào meta.name để hiển thị trong Popup Sửa thông tin
+                    if (feature.properties.soHieu) {
+                        meta.name = feature.properties.soHieu;
+                    }
                     
-                    // Xử lý để công cụ nhận diện đúng loại đối tượng
+                    // Tùy chọn: Đưa thêm chungLoai vào thông số kỹ thuật nếu database có
+                    if (feature.properties.chungLoai && !meta.info) {
+                        meta.info = feature.properties.chungLoai;
+                    }
+                    
+                    meta.tram = 'ĐZ 35kV'; 
+                    layer.options.metadata = meta;
+                    
                     if (layer instanceof L.Marker) {
                         layer.options.customData = { type: 'ctt', title: 'Cột trung thế' };
                     } else {
@@ -1547,13 +1552,11 @@
                     
                     if(!layer.options.metadata.maLienKet) layer.options.metadata.maLienKet = generateId();
                     
-                    // Thêm vào layer vẽ chính để tương tác và lọc được
                     drawnItems.addLayer(layer); 
                     updatePopupContent(layer); 
                 }
             });
             
-            // Cập nhật lại giao diện bộ lọc để xuất hiện mục checkbox "ĐZ 35kV"
             updateStationFilterUI();
         })
         .catch(err => {
